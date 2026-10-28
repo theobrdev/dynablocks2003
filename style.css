@@ -46,3 +46,8 @@ a:hover { text-decoration: underline; }
 #auth #msg { min-height: 16px; margin-top: 12px; }
 #auth #msg.ok { color: #2a7a2a; }
 #auth #msg.err { color: #b00020; }
+#auth small { color: #666; }
+
+/* Fan project footer */
+.site-footer { text-align: center; font-size: 11px; color: #666; margin: 10px 0 20px; }
+.site-footer a { color: #666; text-decoration: underline; }

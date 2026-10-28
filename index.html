@@ -133,11 +133,11 @@
     <div class="copy">Copyright 2003 DYNABLOCKS, Inc. &nbsp;Patents pending</div>
   </div>
 
-    <footer class="site-footer">
+</div>
+
+<footer class="site-footer">
   <p>Fan project by <a href="https://github.com/theobrdev" target="_blank" rel="noopener noreferrer">theobrdev on github</a></p>
 </footer>
-
-</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
@@ -151,18 +151,21 @@
       box.innerHTML = '<a class="head sign" href="signin.html">Sign In...</a><span>(it\'s free)</span>';
       return;
     }
-    // nome = parte do e-mail antes do @ (ex.: theodev78@gmail.com -> theodev78)
-    const name = (session.user.email || 'player').split('@')[0];
+    // mostra primeiro o começo do e-mail, depois troca pelo username do perfil
+    const fallback = (session.user.email || 'player').split('@')[0];
     box.innerHTML = '<span class="head sign" style="text-decoration:none"></span>' +
                     '<a href="#" id="signout">Sign Out</a>';
-    box.querySelector('.head').textContent = 'Hello, ' + name + '!';
+    const head = box.querySelector('.head');
+    head.textContent = 'Hello, ' + fallback + '!';
+    db.from('profiles').select('username').eq('id', session.user.id).maybeSingle()
+      .then(({ data }) => { if (data) head.textContent = 'Hello, ' + data.username + '!'; });
     document.getElementById('signout').onclick = async (e) => {
       e.preventDefault();
       await db.auth.signOut();
     };
   }
 
-  db.auth.onAuthStateChange((_event, session) => render(session));
+  db.auth.onAuthStateChange((_event, session) => setTimeout(() => render(session), 0));
   db.auth.getSession().then(({ data }) => render(data.session));
 </script>
 </body>

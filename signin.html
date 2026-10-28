@@ -20,6 +20,9 @@
       <label for="email">E-mail:</label>
       <input type="email" id="email" autocomplete="email">
 
+      <label for="username">Username <small>(only when creating an account)</small>:</label>
+      <input type="text" id="username" maxlength="20" autocomplete="username">
+
       <label for="password">Password:</label>
       <input type="password" id="password" autocomplete="current-password">
 
@@ -49,12 +52,12 @@
     </div>
     <div class="copy">Copyright 2003 DYNABLOCKS, Inc. &nbsp;Patents pending</div>
   </div>
-  
-  <footer class="site-footer">
-  <p>Fan project by <a href="https://github.com/theobrdev" target="_blank" rel="noopener noreferrer">theobrdev on github</a></p>
-</footer>
 
 </div>
+
+<footer class="site-footer">
+  <p>Fan project by <a href="https://github.com/theobrdev" target="_blank" rel="noopener noreferrer">theobrdev on github</a></p>
+</footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
@@ -74,7 +77,11 @@
     const logged = !!(session && session.user);
     $('signed-out').style.display = logged ? 'none' : 'block';
     $('signed-in').style.display  = logged ? 'block' : 'none';
-    if (logged) $('who').textContent = session.user.email;
+    if (logged) {
+      $('who').textContent = session.user.email;
+      db.from('profiles').select('username').eq('id', session.user.id).maybeSingle()
+        .then(({ data }) => { if (data) $('who').textContent = data.username; });
+    }
   }
 
   $('btn-signin').onclick = async () => {
@@ -88,13 +95,29 @@
   };
 
   $('btn-signup').onclick = async () => {
+    const username = $('username').value.trim();
+    if (!/^[A-Za-z0-9_]{3,20}$/.test(username))
+      return say('Username: 3 to 20 characters, only letters, numbers and _', false);
+
     say('Creating account...', true);
+
+    // verifica se o nome já existe (sem diferenciar maiúsculas; "_" escapado pois é coringa no ilike)
+    const { data: taken } = await db.from('profiles')
+      .select('id').ilike('username', username.replace(/_/g, '\\_')).limit(1);
+    if (taken && taken.length) return say('That username is already taken.', false);
+
     const { data, error } = await db.auth.signUp({
       email: $('email').value.trim(),
       password: $('password').value,
-      options: { emailRedirectTo: 'https://theobrdev.github.io/dynablocks2003/signin.html' }
+      options: {
+        data: { username },
+        emailRedirectTo: 'https://theobrdev.github.io/dynablocks2003/signin.html'
+      }
     });
-    if (error) return say(error.message, false);
+    if (error) {
+      const m = /database error/i.test(error.message) ? 'That username is already taken.' : error.message;
+      return say(m, false);
+    }
     if (!data.session) say('Account created! Check your e-mail to confirm it, then sign in.', true);
     else say('Account created!', true);
   };
@@ -113,7 +136,7 @@
     say('You have signed out.', true);
   };
 
-  db.auth.onAuthStateChange((_event, session) => showState(session));
+  db.auth.onAuthStateChange((_event, session) => setTimeout(() => showState(session), 0));
   db.auth.getSession().then(({ data }) => showState(data.session));
 </script>
 </body>
