@@ -62,3 +62,32 @@ a:hover { text-decoration: underline; }
 .mygb-table th { text-align: left; border-bottom: 1px solid #999; padding: 3px 6px; }
 .mygb-table td { padding: 3px 6px; }
 .mygb-table .empty { color: #555; padding: 10px 6px; }
+
+/* Chat */
+#chat-win { display: none; position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 640px; max-width: 96vw; height: 420px; max-height: 92vh; flex-direction: column;
+  background: #ece9d8; border: 2px outset #fff; box-shadow: 4px 4px 12px rgba(0,0,0,.45); z-index: 1000; font-size: 12px; }
+.cw-title { background: linear-gradient(#2a6fd6, #0a3fa0); color: #fff; font-weight: bold; padding: 3px 6px;
+  display: flex; justify-content: space-between; align-items: center; }
+.cw-title button { font-weight: bold; width: 20px; height: 18px; line-height: 14px; padding: 0; cursor: pointer; }
+.cw-body { flex: 1; display: flex; gap: 6px; padding: 6px; min-height: 0; }
+.cw-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.cw-side { width: 150px; display: flex; flex-direction: column; }
+.cw-with { font-weight: bold; padding: 2px 0 4px; }
+.cw-msgs, #cw-friends { background: #fff; border: 2px inset #fff; overflow-y: auto; }
+.cw-msgs { flex: 1; padding: 4px; }
+.cw-msg { margin-bottom: 6px; word-wrap: break-word; }
+.cw-msg.mine b { color: #0a3fa0; }
+.cw-msg.theirs b { color: #b00020; }
+.cw-msg small { color: #777; }
+.cw-send { display: flex; gap: 4px; margin-top: 6px; }
+.cw-send input { flex: 1; }
+#cw-friends { flex: 1; list-style: none; margin: 0; padding: 0; }
+#cw-friends li { padding: 3px 6px; cursor: pointer; display: flex; justify-content: space-between; }
+#cw-friends li:hover { background: #e6efff; }
+#cw-friends li.sel { background: #316ac5; color: #fff; }
+#cw-friends li.empty { color: #666; cursor: default; background: none; }
+#cw-friends .badge { background: #d33; color: #fff; border-radius: 8px; padding: 0 6px; font-size: 11px; }
+.cw-add { margin-top: 6px; }
+.cw-add input { width: 100%; box-sizing: border-box; margin-bottom: 3px; }
+#cw-note.ok { color: #2a7a2a; } #cw-note.err { color: #b00020; }
