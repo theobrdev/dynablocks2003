@@ -1,38 +1,8 @@
-// Chat do DynaBlocks. Precisa que a página já tenha o cliente Supabase em `db`.
+// Chat do DynaBlocks (usado por chat.html). Precisa do cliente Supabase em `db`.
 (function () {
-  let me = null, friends = [], active = null, channel = null, built = false;
+  let me = null, friends = [], active = null, channel = null;
   const unread = {};
   const $ = id => document.getElementById(id);
-
-  function build() {
-    if (built) return;
-    built = true;
-    const win = document.createElement('div');
-    win.id = 'chat-win';
-    win.innerHTML =
-      '<div class="cw-title"><span>DynaBlocks Chat</span><button id="cw-close" title="Close">X</button></div>' +
-      '<div class="cw-body">' +
-        '<div class="cw-main">' +
-          '<div class="cw-with" id="cw-with">Select a friend to chat</div>' +
-          '<div class="cw-msgs" id="cw-msgs"></div>' +
-          '<div class="cw-send"><input id="cw-input" maxlength="500" placeholder="Type a message..." disabled>' +
-          '<button id="cw-send" disabled>Send</button></div>' +
-        '</div>' +
-        '<div class="cw-side">' +
-          '<div class="cw-with">Friends</div>' +
-          '<ul id="cw-friends"></ul>' +
-          '<div class="cw-add"><input id="cw-add-name" placeholder="Username" maxlength="20">' +
-          '<button id="cw-add-btn">Add friend</button><div id="cw-note"></div></div>' +
-        '</div>' +
-      '</div>';
-    document.body.appendChild(win);
-
-    $('cw-close').onclick = () => { win.style.display = 'none'; };
-    $('cw-send').onclick = send;
-    $('cw-input').onkeydown = e => { if (e.key === 'Enter') send(); };
-    $('cw-add-btn').onclick = addFriend;
-    $('cw-add-name').onkeydown = e => { if (e.key === 'Enter') addFriend(); };
-  }
 
   function note(t, ok) {
     $('cw-note').textContent = t;
@@ -153,12 +123,16 @@
       .subscribe();
   }
 
-  async function open() {
+  async function init() {
     const { data } = await db.auth.getSession();
     if (!data.session) { location.href = 'signin.html'; return; }
     me = data.session.user.id;
-    build();
-    $('chat-win').style.display = 'flex';
+
+    $('cw-send').onclick = send;
+    $('cw-input').onkeydown = e => { if (e.key === 'Enter') send(); };
+    $('cw-add-btn').onclick = addFriend;
+    $('cw-add-name').onkeydown = e => { if (e.key === 'Enter') addFriend(); };
+
     await loadFriends();
     subscribe();
   }
@@ -166,11 +140,9 @@
   db.auth.onAuthStateChange(event => {
     if (event === 'SIGNED_OUT') {
       if (channel) { db.removeChannel(channel); channel = null; }
-      if ($('chat-win')) $('chat-win').style.display = 'none';
-      me = null; active = null; friends = [];
+      location.href = 'index.html';
     }
   });
 
-  const link = document.getElementById('open-chat');
-  if (link) link.onclick = e => { e.preventDefault(); open(); };
+  init();
 })();
