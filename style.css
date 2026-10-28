@@ -51,3 +51,14 @@ a:hover { text-decoration: underline; }
 /* Fan project footer */
 .site-footer { text-align: center; font-size: 11px; color: #666; margin: 10px 0 20px; }
 .site-footer a { color: #666; text-decoration: underline; }
+
+/* My GoBlocks */
+#mygb { width: 640px; margin: 20px auto 30px; font-size: 12px; }
+#mygb .head.big { font-size: 20px; text-decoration: none; margin-bottom: 6px; }
+#mygb h2.head { margin-top: 26px; }
+.mygb-nav { margin: 10px 0 6px; }
+.mygb-nav a { text-decoration: underline; }
+.mygb-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.mygb-table th { text-align: left; border-bottom: 1px solid #999; padding: 3px 6px; }
+.mygb-table td { padding: 3px 6px; }
+.mygb-table .empty { color: #555; padding: 10px 6px; }

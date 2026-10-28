@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My GoBlocks - DynaBlocks</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="page">
+
+  <div id="logo">
+    <a href="index.html"><img src="img/logo.png" width="282" height="34" alt="DynaBlocks Beta"></a>
+  </div>
+
+  <div id="mygb" style="display:none">
+    <h1 class="head big">My GoBlocks</h1>
+    <p id="welcome"></p>
+
+    <div class="mygb-nav">
+      <a href="#high-scores">My high scores</a> |
+      <a href="#saved-games">My saved games</a> |
+      <a href="#created-games">My created games</a> |
+      <a href="#created-models">My created models</a> |
+      <a href="#preferences">My preferences</a>
+    </div>
+
+    <h2 class="head" id="high-scores">My high scores</h2>
+    <table class="mygb-table">
+      <tr><th>Game</th><th>Score</th><th>Date</th></tr>
+      <tr><td colspan="3" class="empty">You have no high scores yet. <a href="index.html">Play a game!</a></td></tr>
+    </table>
+
+    <h2 class="head" id="saved-games">My saved games</h2>
+    <table class="mygb-table">
+      <tr><th>Game</th><th>Saved on</th><th></th></tr>
+      <tr><td colspan="3" class="empty">You have no saved games.</td></tr>
+    </table>
+
+    <h2 class="head" id="created-games">My created games</h2>
+    <table class="mygb-table">
+      <tr><th>Game</th><th>Created</th><th>Plays</th></tr>
+      <tr><td colspan="3" class="empty">You have not created any games. <a href="index.html">Build a game!</a></td></tr>
+    </table>
+
+    <h2 class="head" id="created-models">My created models</h2>
+    <table class="mygb-table">
+      <tr><th>Model</th><th>Created</th><th></th></tr>
+      <tr><td colspan="3" class="empty">You have not created any models. <a href="index.html">Build a model!</a></td></tr>
+    </table>
+
+    <h2 class="head" id="preferences">My preferences</h2>
+    <p>Username: <b id="pref-user"></b></p>
+    <p>E-mail: <b id="pref-mail"></b></p>
+    <p><a href="#" id="signout">Sign Out</a></p>
+  </div>
+
+  <p id="gate" style="text-align:center;margin-top:40px;">Loading...</p>
+
+  <div id="footer">
+    <div class="links">
+      <a href="#">DYNABLOCKS Info</a>
+      <a href="#">Contact</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Copyright Policy</a>
+      <a href="#">Privacy Policy</a>
+    </div>
+    <div class="copy">Copyright 2003 DYNABLOCKS, Inc. &nbsp;Patents pending</div>
+  </div>
+
+</div>
+
+<footer class="site-footer">
+  <p>Fan project by <a href="https://github.com/theobrdev" target="_blank" rel="noopener noreferrer">theobrdev on github</a></p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+  const SUPABASE_URL = 'https://szwirufpcohmizxvrzjq.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_z_FQh2IHQ_I9h-sGmRCOvw_sHmtTFcx';
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const $ = id => document.getElementById(id);
+
+  async function init() {
+    const { data } = await db.auth.getSession();
+    const session = data.session;
+    if (!session) {                       // não logado -> manda para o Sign In
+      location.href = 'signin.html';
+      return;
+    }
+    const user = session.user;
+    let name = (user.email || 'player').split('@')[0];
+    const { data: prof } = await db.from('profiles').select('username').eq('id', user.id).maybeSingle();
+    if (prof) name = prof.username;
+
+    $('welcome').textContent = 'Hello, ' + name + '! This is your personal page.';
+    $('pref-user').textContent = name;
+    $('pref-mail').textContent = user.email;
+    $('gate').style.display = 'none';
+    $('mygb').style.display = 'block';
+    if (location.hash) location.href = location.hash;   // vai para a seção pedida
+  }
+
+  $('signout').onclick = async (e) => {
+    e.preventDefault();
+    await db.auth.signOut();
+    location.href = 'index.html';
+  };
+
+  init();
+</script>
+</body>
+</html>
