@@ -52,6 +52,7 @@
     <h2 class="head" id="preferences">My preferences</h2>
     <p>Username: <b id="pref-user"></b></p>
     <p>E-mail: <b id="pref-mail"></b></p>
+    <p>Points: <b id="pref-points"></b></p>
     <p><a href="#" id="signout">Sign Out</a></p>
   </div>
 
@@ -90,12 +91,14 @@
     }
     const user = session.user;
     let name = (user.email || 'player').split('@')[0];
-    const { data: prof } = await db.from('profiles').select('username').eq('id', user.id).maybeSingle();
-    if (prof) name = prof.username;
+    const { data: prof } = await db.from('profiles').select('username, points').eq('id', user.id).maybeSingle();
+    let points = 0;
+    if (prof) { name = prof.username; points = prof.points; }
 
     $('welcome').textContent = 'Hello, ' + name + '! This is your personal page.';
     $('pref-user').textContent = name;
     $('pref-mail').textContent = user.email;
+    $('pref-points').textContent = points;
     $('gate').style.display = 'none';
     $('mygb').style.display = 'block';
     if (location.hash) location.href = location.hash;   // vai para a seção pedida

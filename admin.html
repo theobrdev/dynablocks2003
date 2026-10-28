@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin - DynaBlocks</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="page">
+
+  <div id="logo">
+    <a href="index.html"><img src="img/logo.png" width="282" height="34" alt="DynaBlocks Beta"></a>
+  </div>
+
+  <div id="auth">
+    <h1 class="head big" style="text-decoration:none">Give points</h1>
+
+    <label for="a-user">Username:</label>
+    <input type="text" id="a-user" maxlength="20">
+
+    <label for="a-amount">Points (negative to take away):</label>
+    <input type="number" id="a-amount" value="50">
+
+    <label for="a-reason">Reason:</label>
+    <input type="text" id="a-reason" maxlength="100" placeholder="e.g. Won the model contest">
+
+    <div class="buttons"><button type="button" id="a-go">Give points</button></div>
+    <p id="msg"></p>
+    <p><a href="index.html">&laquo; Back to the home page</a></p>
+  </div>
+
+  <div id="footer">
+    <div class="copy">Copyright 2003 DYNABLOCKS, Inc. &nbsp;Patents pending</div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+  const SUPABASE_URL = 'https://szwirufpcohmizxvrzjq.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_z_FQh2IHQ_I9h-sGmRCOvw_sHmtTFcx';
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const $ = id => document.getElementById(id);
+  const say = (t, ok) => { $('msg').textContent = t; $('msg').className = ok ? 'ok' : 'err'; };
+
+  db.auth.getSession().then(({ data }) => { if (!data.session) location.href = 'signin.html'; });
+
+  $('a-go').onclick = async () => {
+    const { data, error } = await db.rpc('award_points', {
+      p_username: $('a-user').value.trim(),
+      p_amount: parseInt($('a-amount').value, 10),
+      p_reason: $('a-reason').value.trim()
+    });
+    say(error ? error.message : data, !error);
+  };
+</script>
+</body>
+</html>

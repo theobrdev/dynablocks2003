@@ -45,7 +45,8 @@
   async function load() {
     const list = document.getElementById('top-list');
     const { data, error } = await db.from('profiles')
-      .select('username, user_number')
+      .select('username, user_number, points')
+      .order('points', { ascending: false })
       .order('user_number', { ascending: true })
       .limit(100);
     list.innerHTML = '';
@@ -57,7 +58,7 @@
     }
     data.forEach(p => {
       const li = document.createElement('li');
-      li.textContent = p.username + ' - ID ' + p.user_number;
+      li.textContent = p.username + ' - ' + p.points + ' points - ID ' + p.user_number;
       list.appendChild(li);
     });
   }
