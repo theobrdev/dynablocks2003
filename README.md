@@ -32,4 +32,4 @@ Este é um projeto de fã independente, sem fins lucrativos, criado exclusivamen
 - [x] **Digital Assets Catalog:** An integrated shop system powered by user reward points.
 
 ---
-*Created with ☕ and code by [theobrdev](https://github.com).*
+*Created with ☕ and code by [theobrdev](https://github.com/theobrdev).*
