@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Top point holders - DynaBlocks</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="page">
+
+  <div id="logo">
+    <a href="index.html"><img src="img/logo.png" width="282" height="34" alt="DynaBlocks Beta"></a>
+  </div>
+
+  <div id="top">
+    <h1 class="head big">Top point holders</h1>
+    <ol id="top-list"><li>Loading...</li></ol>
+    <p><a href="index.html">&laquo; Back to the home page</a></p>
+  </div>
+
+  <div id="footer">
+    <div class="links">
+      <a href="#">DYNABLOCKS Info</a>
+      <a href="#">Contact</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Copyright Policy</a>
+      <a href="#">Privacy Policy</a>
+    </div>
+    <div class="copy">Copyright 2003 DYNABLOCKS, Inc. &nbsp;Patents pending</div>
+  </div>
+
+</div>
+
+<footer class="site-footer">
+  <p>Fan project by <a href="https://github.com/theobrdev" target="_blank" rel="noopener noreferrer">theobrdev on github</a></p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+  const SUPABASE_URL = 'https://szwirufpcohmizxvrzjq.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_z_FQh2IHQ_I9h-sGmRCOvw_sHmtTFcx';
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  async function load() {
+    const list = document.getElementById('top-list');
+    const { data, error } = await db.from('profiles')
+      .select('username, user_number')
+      .order('user_number', { ascending: true })
+      .limit(100);
+    list.innerHTML = '';
+    if (error || !data.length) {
+      const li = document.createElement('li');
+      li.textContent = error ? error.message : 'No players yet.';
+      list.appendChild(li);
+      return;
+    }
+    data.forEach(p => {
+      const li = document.createElement('li');
+      li.textContent = p.username + ' - ID ' + p.user_number;
+      list.appendChild(li);
+    });
+  }
+  load();
+</script>
+</body>
+</html>
