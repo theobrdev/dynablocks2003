@@ -117,3 +117,19 @@ a:hover { text-decoration: underline; }
 .bform input, .bform textarea { width: 100%; box-sizing: border-box; font: 13px Arial, sans-serif; padding: 3px; border: 1px solid #7f9db9; }
 .bform button { margin-top: 8px; }
 #boards .err { color: #b00020; }
+
+/* Digital Assets */
+#assets { width: 680px; max-width: 96vw; margin: 30px auto 40px; font-size: 13px; }
+#assets .head.big { font-size: 20px; text-decoration: none; margin-bottom: 10px; }
+#assets h2.head { margin: 22px 0 8px; }
+.agrid { display: flex; flex-wrap: wrap; gap: 12px; }
+.acard { width: 150px; border: 1px solid #999; padding: 6px; text-align: center; font-size: 12px; }
+.acard img { max-width: 100%; max-height: 110px; display: block; margin: 0 auto 4px; image-rendering: auto; }
+.acard .aname { font-weight: bold; word-wrap: break-word; }
+.acard .pending { color: #a06000; font-size: 11px; margin-top: 4px; }
+.acard button { margin-top: 4px; font-size: 11px; }
+#upload-box label { display: block; margin-top: 8px; }
+#upload-box input[type=text] { width: 100%; box-sizing: border-box; padding: 3px; border: 1px solid #7f9db9; }
+#upload-box button { margin-top: 8px; }
+#umsg.ok { color: #2a7a2a; } #umsg.err { color: #b00020; }
+#assets .empty { color: #555; }

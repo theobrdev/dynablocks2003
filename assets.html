@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Digital Assets - DynaBlocks</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="page">
+
+  <div id="logo">
+    <a href="index.html"><img src="img/logo.png" width="282" height="34" alt="DynaBlocks Beta"></a>
+  </div>
+
+  <div id="assets">
+    <h1 class="head big">Digital Assets</h1>
+    <p>Images and textures made by the community, ready to use. New uploads appear here after approval.</p>
+
+    <div id="admin-box" style="display:none">
+      <h2 class="head">Pending approval (admin)</h2>
+      <div class="agrid" id="admin-grid"></div>
+    </div>
+
+    <h2 class="head">Approved assets</h2>
+    <div class="agrid" id="grid">Loading...</div>
+
+    <div id="mine-box" style="display:none">
+      <h2 class="head">My pending uploads</h2>
+      <div class="agrid" id="mine-grid"></div>
+    </div>
+
+    <h2 class="head">Upload an image</h2>
+    <div id="upload-box">
+      <p><a href="signin.html">Sign in</a> to upload.</p>
+    </div>
+
+    <p><a href="index.html">&laquo; Back to the home page</a></p>
+  </div>
+
+  <div id="footer">
+    <div class="links">
+      <a href="#">DYNABLOCKS Info</a>
+      <a href="#">Contact</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Copyright Policy</a>
+      <a href="#">Privacy Policy</a>
+    </div>
+    <div class="copy">Copyright 2003 DYNABLOCKS, Inc. &nbsp;Patents pending</div>
+  </div>
+
+</div>
+
+<footer class="site-footer">
+  <p>Fan project by <a href="https://github.com/theobrdev" target="_blank" rel="noopener noreferrer">theobrdev on github</a></p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+  const SUPABASE_URL = 'https://szwirufpcohmizxvrzjq.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_z_FQh2IHQ_I9h-sGmRCOvw_sHmtTFcx';
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const $ = id => document.getElementById(id);
+  const MAX_BYTES = 1048576;
+  const TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' };
+  let me = null, isAdmin = false;
+
+  function el(tag, props, ...kids) {
+    const e = document.createElement(tag);
+    if (props) for (const k in props) e[k] = props[k];
+    kids.forEach(k => e.append(k));
+    return e;
+  }
+  const urlOf = path => db.storage.from('assets').getPublicUrl(path).data.publicUrl;
+
+  function card(a, mode) {           // mode: 'public' | 'mine' | 'admin'
+    const url = urlOf(a.path);
+    const by = (a.profiles && a.profiles.username) || '?';
+    const img = el('img', { src: url, alt: a.name, loading: 'lazy' });
+    const c = el('div', { className: 'acard' },
+      el('a', { href: url, target: '_blank', rel: 'noopener noreferrer' }, img),
+      el('div', { className: 'aname', textContent: a.name }),
+      el('small', { textContent: 'by ' + by }));
+
+    if (mode === 'public') {
+      const copy = el('a', { href: '#', textContent: 'copy link' });
+      copy.onclick = async e => {
+        e.preventDefault();
+        try { await navigator.clipboard.writeText(url); copy.textContent = 'copied!'; }
+        catch { prompt('Copy this link:', url); }
+      };
+      c.append(el('div', null, copy));
+    }
+    if (mode === 'admin') {
+      const ok = el('button', { textContent: 'Approve', type: 'button' });
+      ok.onclick = async () => {
+        const { data, error } = await db.from('assets').update({ approved: true }).eq('id', a.id).select();
+        if (error || !data.length) return alert(error ? error.message : 'Could not approve.');
+        load();
+      };
+      c.append(el('div', null, ok, document.createTextNode(' ')));
+    }
+    if (mode === 'admin' || mode === 'mine' || (mode === 'public' && isAdmin)) {
+      const del = el('button', { textContent: mode === 'admin' ? 'Reject' : 'Delete', type: 'button' });
+      del.onclick = async () => {
+        if (!confirm('Delete "' + a.name + '"?')) return;
+        const { data, error } = await db.from('assets').delete().eq('id', a.id).select();
+        if (error || !data.length) return alert(error ? error.message : 'Could not delete.');
+        await db.storage.from('assets').remove([a.path]);
+        load();
+      };
+      c.append(el('div', null, del));
+    }
+    if (mode === 'mine') c.append(el('div', { className: 'pending', textContent: 'Waiting for approval' }));
+    return c;
+  }
+
+  function fill(box, list, mode, emptyText) {
+    box.innerHTML = '';
+    if (!list.length) { box.append(el('p', { className: 'empty', textContent: emptyText })); return; }
+    list.forEach(a => box.append(card(a, mode)));
+  }
+
+  async function load() {
+    const { data, error } = await db.from('assets')
+      .select('id, name, path, approved, created_at, owner_id, profiles(username)')
+      .order('created_at', { ascending: false });
+    if (error) { $('grid').textContent = error.message; return; }
+
+    fill($('grid'), data.filter(a => a.approved), 'public', 'No assets yet. Upload the first one!');
+
+    const mine = data.filter(a => !a.approved && a.owner_id === me && !isAdmin);
+    $('mine-box').style.display = mine.length ? 'block' : 'none';
+    fill($('mine-grid'), mine, 'mine', '');
+
+    $('admin-box').style.display = isAdmin ? 'block' : 'none';
+    if (isAdmin) fill($('admin-grid'), data.filter(a => !a.approved), 'admin', 'Nothing waiting for approval.');
+  }
+
+  function buildUpload() {
+    const file = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/gif,image/webp' });
+    const name = el('input', { type: 'text', maxLength: 50 });
+    const msg = el('p', { id: 'umsg' });
+    const btn = el('button', { textContent: 'Upload', type: 'button' });
+    const say = (t, ok) => { msg.textContent = t; msg.className = ok ? 'ok' : 'err'; };
+
+    btn.onclick = async () => {
+      const f = file.files[0];
+      const title = name.value.trim();
+      if (!f) return say('Choose an image first.', false);
+      if (!TYPES[f.type]) return say('Only PNG, JPG, GIF or WEBP images.', false);
+      if (f.size > MAX_BYTES) return say('The image must be 1 MB or smaller.', false);
+      if (title.length < 3) return say('Give it a name (at least 3 characters).', false);
+
+      btn.disabled = true; say('Uploading...', true);
+      const path = me + '/' + crypto.randomUUID() + '.' + TYPES[f.type];
+      const up = await db.storage.from('assets').upload(path, f, { contentType: f.type });
+      if (up.error) { btn.disabled = false; return say(up.error.message, false); }
+
+      const ins = await db.from('assets').insert({ name: title, path });
+      if (ins.error) {
+        await db.storage.from('assets').remove([path]);
+        btn.disabled = false;
+        const m = /row-level security|policy/i.test(ins.error.message)
+          ? 'You can have at most 5 uploads waiting for approval.' : ins.error.message;
+        return say(m, false);
+      }
+      file.value = ''; name.value = ''; btn.disabled = false;
+      say('Uploaded! It will show up after approval.', true);
+      load();
+    };
+
+    const box = $('upload-box');
+    box.innerHTML = '';
+    box.append(
+      el('label', { textContent: 'Image (PNG, JPG, GIF or WEBP, up to 1 MB):' }), file,
+      el('label', { textContent: 'Name:' }), name, btn, msg);
+  }
+
+  async function init() {
+    const { data } = await db.auth.getSession();
+    if (data.session) {
+      me = data.session.user.id;
+      const { data: p } = await db.from('profiles').select('is_admin').eq('id', me).maybeSingle();
+      isAdmin = !!(p && p.is_admin);
+      buildUpload();
+    }
+    load();
+  }
+  init();
+</script>
+</body>
+</html>
