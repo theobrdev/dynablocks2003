@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Message Boards - DynaBlocks</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="page">
+
+  <div id="logo">
+    <a href="index.html"><img src="img/logo.png" width="282" height="34" alt="DynaBlocks Beta"></a>
+  </div>
+
+  <div id="boards">Loading...</div>
+
+  <div id="footer">
+    <div class="links">
+      <a href="#">DYNABLOCKS Info</a>
+      <a href="#">Contact</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Copyright Policy</a>
+      <a href="#">Privacy Policy</a>
+    </div>
+    <div class="copy">Copyright 2003 DYNABLOCKS, Inc. &nbsp;Patents pending</div>
+  </div>
+
+</div>
+
+<footer class="site-footer">
+  <p>Fan project by <a href="https://github.com/theobrdev" target="_blank" rel="noopener noreferrer">theobrdev on github</a></p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+  const SUPABASE_URL = 'https://szwirufpcohmizxvrzjq.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_z_FQh2IHQ_I9h-sGmRCOvw_sHmtTFcx';
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // as chaves precisam ser iguais às do boards.sql
+  const BOARDS = {
+    general: ['General Discussion', 'Talk about anything DynaBlocks.'],
+    games:   ['Game Design', 'Share and discuss your games.'],
+    models:  ['Model Building', 'Show off your models and get tips.'],
+    bugs:    ['Bugs & Suggestions', 'Found a bug or have an idea? Tell us.']
+  };
+
+  const root = document.getElementById('boards');
+  const params = new URLSearchParams(location.search);
+  let me = null, isAdmin = false;
+
+  function el(tag, props, ...kids) {
+    const e = document.createElement(tag);
+    if (props) for (const k in props) e[k] = props[k];
+    kids.forEach(k => e.append(k));
+    return e;
+  }
+  const link = (text, href) => el('a', { textContent: text, href });
+  const when = iso => new Date(iso).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+  const nameOf = row => (row.profiles && row.profiles.username) || '?';
+  function clear(...kids) { root.innerHTML = ''; kids.forEach(k => root.append(k)); }
+  function table(headers, rows) {
+    const t = el('table', { className: 'mygb-table' });
+    t.append(el('tr', null, ...headers.map(h => el('th', { textContent: h }))));
+    rows.forEach(r => t.append(r));
+    return t;
+  }
+  const td = (...kids) => el('td', null, ...kids);
+
+  // ---------- lista de boards ----------
+  async function showBoards() {
+    const rows = [];
+    for (const key in BOARDS) {
+      const { count } = await db.from('forum_threads')
+        .select('id', { count: 'exact', head: true }).eq('board', key);
+      rows.push(el('tr', null,
+        td(link(BOARDS[key][0], 'boards.html?board=' + key)),
+        td(document.createTextNode(BOARDS[key][1])),
+        td(document.createTextNode(count || 0))));
+    }
+    clear(
+      el('h1', { className: 'head big', textContent: 'Message Boards' }),
+      table(['Board', 'About', 'Topics'], rows),
+      el('p', null, link('« Back to the home page', 'index.html'))
+    );
+  }
+
+  // ---------- tópicos de um board ----------
+  async function showBoard(key) {
+    const { data, error } = await db.from('forum_threads')
+      .select('id, title, created_at, profiles(username), forum_posts(count)')
+      .eq('board', key).order('created_at', { ascending: false }).limit(100);
+    const crumbs = el('p', null, link('Message Boards', 'boards.html'), document.createTextNode(' » ' + BOARDS[key][0]));
+    const head = el('h1', { className: 'head big', textContent: BOARDS[key][0] });
+    if (error) return clear(head, el('p', { className: 'err', textContent: error.message }));
+
+    const rows = data.length ? data.map(t => el('tr', null,
+      td(link(t.title, 'boards.html?thread=' + t.id)),
+      td(document.createTextNode(nameOf(t))),
+      td(document.createTextNode(t.forum_posts && t.forum_posts[0] ? t.forum_posts[0].count : 0)),
+      td(document.createTextNode(when(t.created_at)))))
+      : [el('tr', null, el('td', { colSpan: 4, className: 'empty', textContent: 'No topics yet. Be the first!' }))];
+
+    const parts = [crumbs, head, table(['Topic', 'Author', 'Replies', 'Created'], rows)];
+
+    if (me) {
+      const title = el('input', { type: 'text', maxLength: 100 });
+      const body = el('textarea', { rows: 5, maxLength: 5000 });
+      const msg = el('p', { className: 'err' });
+      const btn = el('button', { textContent: 'Post topic', type: 'button' });
+      btn.onclick = async () => {
+        if (title.value.trim().length < 3) { msg.textContent = 'Title: at least 3 characters.'; return; }
+        if (!body.value.trim()) { msg.textContent = 'Write something in the message.'; return; }
+        btn.disabled = true;
+        const { data: row, error: e } = await db.from('forum_threads')
+          .insert({ board: key, title: title.value.trim(), body: body.value.trim() }).select('id').single();
+        if (e) { btn.disabled = false; msg.textContent = e.message; return; }
+        location.href = 'boards.html?thread=' + row.id;
+      };
+      parts.push(el('div', { className: 'bform' },
+        el('h2', { className: 'head', textContent: 'New topic' }),
+        el('label', { textContent: 'Title:' }), title,
+        el('label', { textContent: 'Message:' }), body, btn, msg));
+    } else {
+      parts.push(el('p', null, link('Sign in', 'signin.html'), document.createTextNode(' to post a topic.')));
+    }
+    clear(...parts);
+  }
+
+  // ---------- um tópico ----------
+  function postBox(author, date, body, canDelete, onDelete) {
+    const header = el('div', { className: 'ph' },
+      el('span', { textContent: author }), el('small', { textContent: ' - ' + when(date) }));
+    if (canDelete) {
+      const del = el('a', { textContent: 'delete', href: '#', className: 'pdel' });
+      del.onclick = e => { e.preventDefault(); if (confirm('Delete this?')) onDelete(); };
+      header.append(del);
+    }
+    return el('div', { className: 'post' }, header, el('div', { className: 'pb', textContent: body }));
+  }
+
+  async function showThread(id) {
+    const { data: t, error } = await db.from('forum_threads')
+      .select('id, board, title, body, created_at, author_id, profiles(username)').eq('id', id).maybeSingle();
+    if (error || !t) return clear(el('p', { textContent: error ? error.message : 'Topic not found.' }),
+      el('p', null, link('« Message Boards', 'boards.html')));
+    const { data: posts } = await db.from('forum_posts')
+      .select('id, body, created_at, author_id, profiles(username)').eq('thread_id', id).order('created_at');
+
+    const parts = [
+      el('p', null, link('Message Boards', 'boards.html'), document.createTextNode(' » '),
+         link(BOARDS[t.board][0], 'boards.html?board=' + t.board)),
+      el('h1', { className: 'head big', textContent: t.title }),
+      postBox(nameOf(t), t.created_at, t.body, me && (me === t.author_id || isAdmin), async () => {
+        const { data: gone, error: e } = await db.from('forum_threads').delete().eq('id', t.id).select();
+        if (e || !gone.length) return alert(e ? e.message : 'Could not delete.');
+        location.href = 'boards.html?board=' + t.board;
+      })
+    ];
+    (posts || []).forEach(p => parts.push(postBox(nameOf(p), p.created_at, p.body,
+      me && (me === p.author_id || isAdmin), async () => {
+        const { data: gone, error: e } = await db.from('forum_posts').delete().eq('id', p.id).select();
+        if (e || !gone.length) return alert(e ? e.message : 'Could not delete.');
+        showThread(id);
+      })));
+
+    if (me) {
+      const body = el('textarea', { rows: 4, maxLength: 5000 });
+      const msg = el('p', { className: 'err' });
+      const btn = el('button', { textContent: 'Post reply', type: 'button' });
+      btn.onclick = async () => {
+        if (!body.value.trim()) { msg.textContent = 'Write something first.'; return; }
+        btn.disabled = true;
+        const { error: e } = await db.from('forum_posts').insert({ thread_id: id, body: body.value.trim() });
+        if (e) { btn.disabled = false; msg.textContent = e.message; return; }
+        showThread(id);
+      };
+      parts.push(el('div', { className: 'bform' },
+        el('h2', { className: 'head', textContent: 'Reply' }), body, btn, msg));
+    } else {
+      parts.push(el('p', null, link('Sign in', 'signin.html'), document.createTextNode(' to reply.')));
+    }
+    clear(...parts);
+  }
+
+  async function init() {
+    const { data } = await db.auth.getSession();
+    if (data.session) {
+      me = data.session.user.id;
+      const { data: p } = await db.from('profiles').select('is_admin').eq('id', me).maybeSingle();
+      isAdmin = !!(p && p.is_admin);
+    }
+    const thread = parseInt(params.get('thread'), 10);
+    const board = params.get('board');
+    if (thread) return showThread(thread);
+    if (board && BOARDS[board]) return showBoard(board);
+    showBoards();
+  }
+  init();
+</script>
+</body>
+</html>

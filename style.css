@@ -102,3 +102,18 @@ a:hover { text-decoration: underline; }
 #top .head.big { font-size: 20px; text-decoration: none; margin-bottom: 10px; }
 #top ol { margin: 0 0 20px; padding-left: 26px; }
 #top li { margin-bottom: 6px; }
+
+/* Message Boards */
+#boards { width: 640px; max-width: 96vw; margin: 30px auto 40px; font-size: 13px; }
+#boards .head.big { font-size: 20px; text-decoration: none; margin-bottom: 10px; }
+#boards h2.head { margin: 20px 0 6px; }
+#boards a { text-decoration: underline; }
+.post { border: 1px solid #999; margin: 10px 0; }
+.post .ph { background: #ece9d8; padding: 3px 8px; font-weight: bold; }
+.post .ph small { font-weight: normal; color: #555; }
+.post .pdel { float: right; font-weight: normal; font-size: 11px; }
+.post .pb { padding: 8px; white-space: pre-wrap; word-wrap: break-word; }
+.bform label { display: block; margin-top: 8px; }
+.bform input, .bform textarea { width: 100%; box-sizing: border-box; font: 13px Arial, sans-serif; padding: 3px; border: 1px solid #7f9db9; }
+.bform button { margin-top: 8px; }
+#boards .err { color: #b00020; }
