@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign In - DynaBlocks</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="page">
+
+  <div id="logo">
+    <a href="index.html"><img src="img/logo.png" width="282" height="34" alt="DynaBlocks Beta"></a>
+  </div>
+
+  <div id="auth">
+    <a class="head" href="#" onclick="return false">Sign In</a>
+
+    <div id="signed-out">
+      <label for="email">E-mail:</label>
+      <input type="email" id="email" autocomplete="email">
+
+      <label for="password">Password:</label>
+      <input type="password" id="password" autocomplete="current-password">
+
+      <div class="buttons">
+        <button type="button" id="btn-signin">Sign In</button>
+        <button type="button" id="btn-signup">Create account (it's free)</button>
+      </div>
+      <p><a href="#" id="forgot">Forgot your password?</a></p>
+    </div>
+
+    <div id="signed-in" style="display:none">
+      <p>You are signed in as <b id="who"></b>.</p>
+      <p><a href="index.html">Go to the home page</a></p>
+      <p><a href="#" id="btn-signout">Sign Out</a></p>
+    </div>
+
+    <p id="msg"></p>
+  </div>
+
+  <div id="footer">
+    <div class="links">
+      <a href="#">DYNABLOCKS Info</a>
+      <a href="#">Contact</a>
+      <a href="#">Terms of Service</a>
+      <a href="#">Copyright Policy</a>
+      <a href="#">Privacy Policy</a>
+    </div>
+    <div class="copy">Copyright 2003 DYNABLOCKS, Inc. &nbsp;Patents pending</div>
+  </div>
+
+  <footer class="site-footer">
+  <p>Fan project by <a href="https://github.com/theobrdev" target="_blank" rel="noopener noreferrer">theobrdev on github</a></p>
+</footer>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+  // === Cole aqui os dados do projeto "dynablocks2003" (Project Settings > API) ===
+  const SUPABASE_URL = 'https://szwirufpcohmizxvrzjq.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_z_FQh2IHQ_I9h-sGmRCOvw_sHmtTFcx';   // publishable (sb_publishable_...) ou anon. NUNCA a service_role/secret!
+
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const $ = id => document.getElementById(id);
+  function say(text, ok) {
+    $('msg').textContent = text;
+    $('msg').className = ok ? 'ok' : 'err';
+  }
+
+  function showState(session) {
+    const logged = !!(session && session.user);
+    $('signed-out').style.display = logged ? 'none' : 'block';
+    $('signed-in').style.display  = logged ? 'block' : 'none';
+    if (logged) $('who').textContent = session.user.email;
+  }
+
+  $('btn-signin').onclick = async () => {
+    say('Signing in...', true);
+    const { error } = await db.auth.signInWithPassword({
+      email: $('email').value.trim(),
+      password: $('password').value
+    });
+    if (error) return say(error.message, false);
+    say('Welcome back!', true);
+  };
+
+  $('btn-signup').onclick = async () => {
+    say('Creating account...', true);
+    const { data, error } = await db.auth.signUp({
+      email: $('email').value.trim(),
+      password: $('password').value
+    });
+    if (error) return say(error.message, false);
+    if (!data.session) say('Account created! Check your e-mail to confirm it, then sign in.', true);
+    else say('Account created!', true);
+  };
+
+  $('forgot').onclick = async (e) => {
+    e.preventDefault();
+    const email = $('email').value.trim();
+    if (!email) return say('Type your e-mail first.', false);
+    const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: location.href });
+    say(error ? error.message : 'Password reset e-mail sent.', !error);
+  };
+
+  $('btn-signout').onclick = async (e) => {
+    e.preventDefault();
+    await db.auth.signOut();
+    say('You have signed out.', true);
+  };
+
+  db.auth.onAuthStateChange((_event, session) => showState(session));
+  db.auth.getSession().then(({ data }) => showState(data.session));
+</script>
+</body>
+</html>

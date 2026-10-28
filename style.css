@@ -1,0 +1,48 @@
+body {
+  margin: 0;
+  background: #fff;
+  color: #000;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 11px;
+}
+a { color: #000; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+#page { width: 760px; margin: 0 auto; padding: 0 0 20px; }
+
+/* Logo */
+#logo { text-align: center; margin: 28px 0 8px; }
+
+/* Layout */
+#cols { display: flex; align-items: flex-start; margin-top: 18px; }
+.col { width: 168px; margin-right: 0; }
+.col.first { width: 200px; margin-left: 17px; }
+.col.second { width: 168px; }
+.col.third { width: 158px; }
+.col.shots { width: 170px; margin-left: 4px; text-align: center; }
+
+.head { font-size: 14px; font-weight: bold; text-decoration: underline; display: block; margin-bottom: 4px; }
+.head.sign { font-size: 14px; }
+.group { margin-bottom: 20px; line-height: 1.25; }
+.group a, .group span { display: block; }
+.group .gap { height: 11px; }
+
+/* Screenshots */
+.shot { margin-bottom: 14px; font-size: 11px; line-height: 1.25; }
+.shot a.t { text-decoration: underline; }
+.shot img.ss { display:block; margin:0 auto 4px; border:0; }
+
+/* Footer */
+#footer { text-align: center; margin-top: 6px; font-size: 11px; }
+#footer .links a { margin: 0 14px; text-decoration: underline; }
+#footer .copy { margin-top: 8px; }
+
+/* Sign In */
+#auth { width: 300px; margin: 30px auto 40px; font-size: 12px; }
+#auth label { display: block; margin-top: 10px; }
+#auth input { width: 100%; box-sizing: border-box; font-size: 13px; padding: 3px; margin-top: 2px; border: 1px solid #7f9db9; }
+#auth .buttons { margin-top: 14px; }
+#auth button { font-size: 12px; margin-right: 6px; padding: 2px 8px; }
+#auth #msg { min-height: 16px; margin-top: 12px; }
+#auth #msg.ok { color: #2a7a2a; }
+#auth #msg.err { color: #b00020; }
