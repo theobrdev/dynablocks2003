@@ -49,7 +49,7 @@
     </div>
     <div class="copy">Copyright 2003 DYNABLOCKS, Inc. &nbsp;Patents pending</div>
   </div>
-
+  
   <footer class="site-footer">
   <p>Fan project by <a href="https://github.com/theobrdev" target="_blank" rel="noopener noreferrer">theobrdev on github</a></p>
 </footer>
@@ -59,8 +59,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
   // === Cole aqui os dados do projeto "dynablocks2003" (Project Settings > API) ===
-  const SUPABASE_URL = 'https://szwirufpcohmizxvrzjq.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_z_FQh2IHQ_I9h-sGmRCOvw_sHmtTFcx';   // publishable (sb_publishable_...) ou anon. NUNCA a service_role/secret!
+  const SUPABASE_URL = 'https://SEU-PROJECT-ID.supabase.co';
+  const SUPABASE_KEY = 'SUA-CHAVE-PUBLICA';   // publishable (sb_publishable_...) ou anon. NUNCA a service_role/secret!
 
   const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -91,7 +91,8 @@
     say('Creating account...', true);
     const { data, error } = await db.auth.signUp({
       email: $('email').value.trim(),
-      password: $('password').value
+      password: $('password').value,
+      options: { emailRedirectTo: 'https://theobrdev.github.io/dynablocks2003/signin.html' }
     });
     if (error) return say(error.message, false);
     if (!data.session) say('Account created! Check your e-mail to confirm it, then sign in.', true);
@@ -102,7 +103,7 @@
     e.preventDefault();
     const email = $('email').value.trim();
     if (!email) return say('Type your e-mail first.', false);
-    const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: location.href });
+    const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: 'https://theobrdev.github.io/dynablocks2003/signin.html' });
     say(error ? error.message : 'Password reset e-mail sent.', !error);
   };
 

@@ -17,7 +17,7 @@
 
     <!-- Coluna 1 -->
     <div class="col first">
-      <div class="group">
+      <div class="group" id="auth-box">
         <a class="head sign" href="signin.html">Sign In...</a>
         <span>(it's free)</span>
       </div>
@@ -133,10 +133,37 @@
     <div class="copy">Copyright 2003 DYNABLOCKS, Inc. &nbsp;Patents pending</div>
   </div>
 
-<footer class="site-footer">
+    <footer class="site-footer">
   <p>Fan project by <a href="https://github.com/theobrdev" target="_blank" rel="noopener noreferrer">theobrdev on github</a></p>
 </footer>
 
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+  const SUPABASE_URL = 'https://szwirufpcohmizxvrzjq.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_z_FQh2IHQ_I9h-sGmRCOvw_sHmtTFcx';
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  function render(session) {
+    const box = document.getElementById('auth-box');
+    if (!session || !session.user) {
+      box.innerHTML = '<a class="head sign" href="signin.html">Sign In...</a><span>(it\'s free)</span>';
+      return;
+    }
+    // nome = parte do e-mail antes do @ (ex.: theodev78@gmail.com -> theodev78)
+    const name = (session.user.email || 'player').split('@')[0];
+    box.innerHTML = '<span class="head sign" style="text-decoration:none"></span>' +
+                    '<a href="#" id="signout">Sign Out</a>';
+    box.querySelector('.head').textContent = 'Hello, ' + name + '!';
+    document.getElementById('signout').onclick = async (e) => {
+      e.preventDefault();
+      await db.auth.signOut();
+    };
+  }
+
+  db.auth.onAuthStateChange((_event, session) => render(session));
+  db.auth.getSession().then(({ data }) => render(data.session));
+</script>
 </body>
 </html>
