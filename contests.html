@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enter a Contest - DynaBlocks</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="page">
+
+  <div id="logo">
+    <a href="index.html"><img src="img/logo.png" width="282" height="34" alt="DynaBlocks Beta"></a>
+  </div>
+
+  <div id="contests">Loading...</div>
+
+  <div id="footer">
+    <div class="links">
+      <a href="info.html">DYNABLOCKS Info</a>
+      <a href="contact.html">Contact</a>
+      <a href="terms.html">Terms of Service</a>
+      <a href="copyright.html">Copyright Policy</a>
+      <a href="privacy.html">Privacy Policy</a>
+    </div>
+    <div class="copy">Copyright 2003 DYNABLOCKS, Inc. &nbsp;Patents pending</div>
+  </div>
+
+</div>
+
+<footer class="site-footer">
+  <p>Fan project by <a href="https://github.com/theobrdev" target="_blank" rel="noopener noreferrer">theobrdev on github</a></p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+  const SUPABASE_URL = 'https://szwirufpcohmizxvrzjq.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_z_FQh2IHQ_I9h-sGmRCOvw_sHmtTFcx';
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // as chaves precisam ser iguais às do contests.sql
+  const CATS = { playing: 'Game Playing', models: 'Model Building', games: 'Game Building' };
+  const MAX_BYTES = 1048576;
+  const TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp' };
+
+  const root = document.getElementById('contests');
+  const params = new URLSearchParams(location.search);
+  let me = null, isAdmin = false;
+
+  function el(tag, props, ...kids) {
+    const e = document.createElement(tag);
+    if (props) for (const k in props) e[k] = props[k];
+    kids.forEach(k => e.append(k));
+    return e;
+  }
+  const txt = t => document.createTextNode(t);
+  const link = (text, href) => el('a', { textContent: text, href });
+  const when = iso => new Date(iso).toLocaleDateString([], { dateStyle: 'medium' });
+  const nameOf = r => (r.profiles && r.profiles.username) || '?';
+  const urlOf = p => db.storage.from('assets').getPublicUrl(p).data.publicUrl;
+  const countOf = c => (c.contest_entries && c.contest_entries[0]) ? c.contest_entries[0].count : 0;
+  function clear(...kids) { root.innerHTML = ''; kids.forEach(k => root.append(k)); }
+  function table(headers, rows) {
+    const t = el('table', { className: 'mygb-table' });
+    t.append(el('tr', null, ...headers.map(h => el('th', { textContent: h }))));
+    rows.forEach(r => t.append(r));
+    return t;
+  }
+  const td = (...kids) => el('td', null, ...kids);
+
+  // ---------- lista de concursos ----------
+  async function showList() {
+    const cat = CATS[params.get('category')] ? params.get('category') : null;
+    const { data, error } = await db.from('contests')
+      .select('id, category, title, description, is_open, created_at, contest_entries(count)')
+      .order('created_at', { ascending: false });
+    if (error) return clear(el('p', { className: 'err', textContent: error.message }));
+
+    const parts = [
+      el('h1', { className: 'head big', textContent: 'Enter a Contest' }),
+      el('p', { textContent: 'Pick a contest, send your entry (a picture and a short description) and the admin chooses the winners. Winners earn points!' })
+    ];
+    if (cat) parts.push(el('p', null, link('Show all contests', 'contests.html')));
+
+    (cat ? [cat] : Object.keys(CATS)).forEach(k => {
+      const list = data.filter(c => c.category === k);
+      const rows = list.length ? list.map(c => el('tr', null,
+        td(link(c.title, 'contests.html?contest=' + c.id)),
+        td(txt(c.is_open ? 'Open' : 'Closed')),
+        td(txt(countOf(c))),
+        td(txt(when(c.created_at)))))
+        : [el('tr', null, el('td', { colSpan: 4, className: 'empty', textContent: 'No contests yet.' }))];
+      parts.push(el('h2', { className: 'head', textContent: CATS[k] }),
+                 table(['Contest', 'Status', 'Entries', 'Created'], rows));
+    });
+
+    // vencedores
+    const { data: wins } = await db.from('contest_entries')
+      .select('title, prize, created_at, contest_id, contests(title), profiles(username)')
+      .eq('is_winner', true).order('created_at', { ascending: false }).limit(30);
+    const wrows = (wins && wins.length) ? wins.map(w => el('tr', null,
+      td(link((w.contests && w.contests.title) || '?', 'contests.html?contest=' + w.contest_id)),
+      td(txt(nameOf(w))), td(txt(w.title)), td(txt('+' + w.prize))))
+      : [el('tr', null, el('td', { colSpan: 4, className: 'empty', textContent: 'No winners yet.' }))];
+    parts.push(el('h2', { className: 'head', id: 'winners', textContent: 'Contest winners' }),
+               table(['Contest', 'Winner', 'Entry', 'Points'], wrows));
+
+    // admin: criar concurso
+    if (isAdmin) {
+      const sel = el('select');
+      Object.keys(CATS).forEach(k => sel.append(el('option', { value: k, textContent: CATS[k] })));
+      const title = el('input', { type: 'text', maxLength: 80 });
+      const desc = el('textarea', { rows: 3, maxLength: 1000 });
+      const msg = el('p', { className: 'err' });
+      const btn = el('button', { textContent: 'Create contest', type: 'button' });
+      btn.onclick = async () => {
+        if (title.value.trim().length < 3) { msg.textContent = 'Title: at least 3 characters.'; return; }
+        const { error: e } = await db.from('contests')
+          .insert({ category: sel.value, title: title.value.trim(), description: desc.value.trim() });
+        if (e) { msg.textContent = e.message; return; }
+        showList();
+      };
+      parts.push(el('div', { className: 'bform' },
+        el('h2', { className: 'head', textContent: 'Create a contest (admin)' }),
+        el('label', { textContent: 'Category:' }), sel,
+        el('label', { textContent: 'Title:' }), title,
+        el('label', { textContent: 'Description / rules:' }), desc, btn, msg));
+    }
+
+    parts.push(el('p', null, link('« Back to the home page', 'index.html')));
+    clear(...parts);
+    if (location.hash === '#winners') document.getElementById('winners').scrollIntoView();
+  }
+
+  // ---------- um concurso ----------
+  function entryCard(e, c) {
+    const url = urlOf(e.image_path);
+    const card = el('div', { className: 'acard' + (e.is_winner ? ' winner' : '') },
+      el('a', { href: url, target: '_blank', rel: 'noopener noreferrer' },
+        el('img', { src: url, alt: e.title, loading: 'lazy' })),
+      el('div', { className: 'aname', textContent: e.title }),
+      el('small', { textContent: 'by ' + nameOf(e) }));
+    if (e.description) card.append(el('div', { className: 'edesc', textContent: e.description }));
+    if (e.is_winner) card.append(el('div', { className: 'wintag', textContent: '🏆 Winner (+' + e.prize + ' points)' }));
+
+    if (isAdmin && !e.is_winner) {
+      const w = el('button', { textContent: 'Pick winner', type: 'button' });
+      w.onclick = async () => {
+        const raw = prompt('How many points does the winner get?', '100');
+        if (raw === null) return;
+        const pts = parseInt(raw, 10);
+        if (isNaN(pts) || pts < 0) return alert('Enter a valid number.');
+        const { error } = await db.rpc('pick_winner', { p_entry: e.id, p_points: pts });
+        if (error) return alert(error.message);
+        showContest(c.id);
+      };
+      card.append(el('div', null, w));
+    }
+    if (isAdmin || (me && e.owner_id === me)) {
+      const d = el('button', { textContent: 'Delete', type: 'button' });
+      d.onclick = async () => {
+        if (!confirm('Delete this entry?')) return;
+        const { data, error } = await db.from('contest_entries').delete().eq('id', e.id).select();
+        if (error || !data.length) return alert(error ? error.message : 'Could not delete.');
+        await db.storage.from('assets').remove([e.image_path]);
+        showContest(c.id);
+      };
+      card.append(el('div', null, d));
+    }
+    return card;
+  }
+
+  function entryForm(c) {
+    const file = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/gif,image/webp' });
+    const title = el('input', { type: 'text', maxLength: 50 });
+    const desc = el('textarea', { rows: 3, maxLength: 500 });
+    const msg = el('p', { className: 'err' });
+    const btn = el('button', { textContent: 'Send my entry', type: 'button' });
+    const say = (t, ok) => { msg.textContent = t; msg.className = ok ? 'ok' : 'err'; };
+
+    btn.onclick = async () => {
+      const f = file.files[0];
+      if (!f) return say('Choose a picture first.', false);
+      if (!TYPES[f.type]) return say('Only PNG, JPG, GIF or WEBP images.', false);
+      if (f.size > MAX_BYTES) return say('The image must be 1 MB or smaller.', false);
+      if (title.value.trim().length < 3) return say('Give your entry a title (at least 3 characters).', false);
+
+      btn.disabled = true; say('Sending...', true);
+      const path = me + '/contest-' + crypto.randomUUID() + '.' + TYPES[f.type];
+      const up = await db.storage.from('assets').upload(path, f, { contentType: f.type });
+      if (up.error) { btn.disabled = false; return say(up.error.message, false); }
+
+      const ins = await db.from('contest_entries').insert({
+        contest_id: c.id, title: title.value.trim(), description: desc.value.trim(), image_path: path });
+      if (ins.error) {
+        await db.storage.from('assets').remove([path]);
+        btn.disabled = false;
+        return say(/duplicate|unique/i.test(ins.error.message)
+          ? 'You already entered this contest.' : ins.error.message, false);
+      }
+      showContest(c.id);
+    };
+
+    return el('div', { className: 'bform' },
+      el('h2', { className: 'head', textContent: 'Enter this contest' }),
+      el('label', { textContent: 'Picture (PNG, JPG, GIF or WEBP, up to 1 MB):' }), file,
+      el('label', { textContent: 'Title:' }), title,
+      el('label', { textContent: 'Description:' }), desc, btn, msg);
+  }
+
+  async function showContest(id) {
+    const { data: c, error } = await db.from('contests').select('*').eq('id', id).maybeSingle();
+    if (error || !c) return clear(el('p', { textContent: error ? error.message : 'Contest not found.' }),
+                                  el('p', null, link('« All contests', 'contests.html')));
+    const { data: entries } = await db.from('contest_entries')
+      .select('id, title, description, image_path, is_winner, prize, owner_id, created_at, profiles(username)')
+      .eq('contest_id', id).order('is_winner', { ascending: false }).order('created_at');
+    const list = entries || [];
+
+    const parts = [
+      el('p', null, link('Contests', 'contests.html'), txt(' » '),
+         link(CATS[c.category], 'contests.html?category=' + c.category)),
+      el('h1', { className: 'head big', textContent: c.title }),
+      el('p', null, el('b', { textContent: c.is_open ? 'Open for entries' : 'Closed' }))
+    ];
+    if (c.description) parts.push(el('p', { className: 'cdesc', textContent: c.description }));
+
+    if (isAdmin) {
+      const toggle = el('button', { textContent: c.is_open ? 'Close contest' : 'Reopen contest', type: 'button' });
+      toggle.onclick = async () => {
+        const { data, error: e } = await db.from('contests').update({ is_open: !c.is_open }).eq('id', c.id).select();
+        if (e || !data.length) return alert(e ? e.message : 'Not allowed.');
+        showContest(id);
+      };
+      const del = el('button', { textContent: 'Delete contest', type: 'button' });
+      del.onclick = async () => {
+        if (!confirm('Delete this contest and all its entries?')) return;
+        const paths = list.map(x => x.image_path);
+        const { data, error: e } = await db.from('contests').delete().eq('id', c.id).select();
+        if (e || !data.length) return alert(e ? e.message : 'Not allowed.');
+        if (paths.length) await db.storage.from('assets').remove(paths);
+        location.href = 'contests.html';
+      };
+      parts.push(el('p', null, toggle, txt(' '), del));
+    }
+
+    const grid = el('div', { className: 'agrid' });
+    if (list.length) list.forEach(e => grid.append(entryCard(e, c)));
+    else grid.append(el('p', { className: 'empty', textContent: 'No entries yet.' }));
+    parts.push(el('h2', { className: 'head', textContent: 'Entries (' + list.length + ')' }), grid);
+
+    if (!me) parts.push(el('p', null, link('Sign in', 'signin.html'), txt(' to enter this contest.')));
+    else if (!c.is_open) parts.push(el('p', { textContent: 'This contest is closed.' }));
+    else if (list.some(e => e.owner_id === me)) parts.push(el('p', { textContent: 'You already entered this contest. Good luck!' }));
+    else parts.push(entryForm(c));
+
+    parts.push(el('p', null, link('« All contests', 'contests.html')));
+    clear(...parts);
+  }
+
+  async function init() {
+    const { data } = await db.auth.getSession();
+    if (data.session) {
+      me = data.session.user.id;
+      const { data: p } = await db.from('profiles').select('is_admin').eq('id', me).maybeSingle();
+      isAdmin = !!(p && p.is_admin);
+    }
+    const id = parseInt(params.get('contest'), 10);
+    if (id) showContest(id); else showList();
+  }
+  init();
+</script>
+</body>
+</html>

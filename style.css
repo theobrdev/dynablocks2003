@@ -153,3 +153,16 @@ a:hover { text-decoration: underline; }
 /* Terms of Service */
 #info ol { margin: 0 0 12px; padding-left: 24px; }
 #info ol li { margin-bottom: 8px; }
+
+/* Contests */
+#contests { width: 680px; max-width: 96vw; margin: 30px auto 40px; font-size: 13px; }
+#contests .head.big { font-size: 20px; text-decoration: none; margin-bottom: 10px; }
+#contests h2.head { margin: 22px 0 8px; }
+#contests a { text-decoration: underline; }
+#contests .err { color: #b00020; } #contests .ok { color: #2a7a2a; }
+#contests .empty { color: #555; }
+#contests .cdesc { white-space: pre-wrap; }
+.acard.winner { border: 2px solid #c9a227; background: #fff8dc; }
+.acard .edesc { font-size: 11px; color: #444; margin-top: 3px; white-space: pre-wrap; word-wrap: break-word; }
+.acard .wintag { font-weight: bold; color: #8a6d00; font-size: 11px; margin-top: 4px; }
+#contests .bform select { width: 100%; padding: 3px; }
