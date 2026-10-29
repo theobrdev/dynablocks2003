@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Play a Game - DynaBlocks</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="editor.css">
+</head>
+<body>
+
+<!-- Lista de jogos -->
+<div id="page">
+
+  <div id="logo">
+    <a href="index.html"><img src="img/logo.png" width="282" height="34" alt="DynaBlocks Beta"></a>
+  </div>
+
+  <div id="boards">
+    <h1 class="head big">Play a Game</h1>
+    <p>Games made by the community with the DynaBlocks Level Editor. Pick one and play!
+       Use <b>W A S D</b> to move, <b>Space</b> to jump, and drag with the <b>right mouse button</b> to look around.</p>
+    <div id="gamelist">Loading...</div>
+    <p><a href="editor.html">Build your own game with the Level Editor &raquo;</a></p>
+    <p><a href="index.html">&laquo; Back to the home page</a></p>
+  </div>
+
+  <div id="footer">
+    <div class="links">
+      <a href="info.html">DYNABLOCKS Info</a>
+      <a href="contact.html">Contact</a>
+      <a href="terms.html">Terms of Service</a>
+      <a href="copyright.html">Copyright Policy</a>
+      <a href="privacy.html">Privacy Policy</a>
+    </div>
+    <div class="copy">Copyright 2003 DYNABLOCKS, Inc. &nbsp;Patents pending</div>
+  </div>
+
+</div>
+
+<footer class="site-footer">
+  <p>Fan project by <a href="https://github.com/theobrdev" target="_blank" rel="noopener noreferrer">theobrdev on github</a></p>
+</footer>
+
+<!-- Jogo -->
+<div id="gameview">
+  <div id="hud-top">
+    <div class="hudbox"><b id="hud-title"></b><br>
+      <small>W A S D move &middot; Space jump &middot; right-drag look &middot; wheel zoom</small></div>
+    <div class="hudbox">
+      <button id="hud-respawn">Respawn</button>
+      <button id="hud-exit">Exit</button>
+    </div>
+  </div>
+  <div id="hud-msg"></div>
+  <div id="hud-log"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fengari-web@0.1.4/dist/fengari-web.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+  const SUPABASE_URL = 'https://szwirufpcohmizxvrzjq.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_z_FQh2IHQ_I9h-sGmRCOvw_sHmtTFcx';
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+</script>
+<script src="world.js"></script>
+<script src="play.js"></script>
+</body>
+</html>

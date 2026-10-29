@@ -1,0 +1,62 @@
+/* Estilo do Level Editor e do jogo (editor.html e play.html) */
+body.fullapp { margin: 0; overflow: hidden; background: #ece9d8; font: 12px Tahoma, Arial, sans-serif; }
+
+/* ---------- Editor ---------- */
+#app { position: fixed; inset: 0; display: flex; flex-direction: column; }
+#toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 4px 6px;
+  background: linear-gradient(#f6f4ea, #d8d4c0); border-bottom: 1px solid #808080; }
+#toolbar .brand { font-weight: bold; margin-right: 6px; }
+#toolbar .sep { width: 1px; height: 20px; background: #999; margin: 0 4px; }
+#toolbar button { font: 12px Tahoma, Arial, sans-serif; padding: 3px 9px; cursor: pointer;
+  border: 2px outset #fff; background: #ece9d8; }
+#toolbar button:active, #toolbar button.on { border-style: inset; background: #cfd9ee; }
+#toolbar input[type=text] { width: 170px; font: 12px Tahoma, Arial, sans-serif; padding: 2px 4px; }
+#toolbar label { display: inline-flex; align-items: center; gap: 3px; }
+#main { flex: 1; display: flex; min-height: 0; }
+#viewport { flex: 1; min-width: 0; position: relative; background: #9cc4ee; }
+#viewport canvas { display: block; width: 100%; height: 100%; }
+#side { width: 270px; display: flex; flex-direction: column; border-left: 1px solid #808080; background: #ece9d8; }
+.panel { display: flex; flex-direction: column; min-height: 0; }
+#explorer { flex: 1; border-bottom: 1px solid #808080; }
+#props { flex: 1; }
+.ptitle { background: linear-gradient(#2a6fd6, #0a3fa0); color: #fff; font-weight: bold; padding: 2px 6px; }
+#tree, #propbody { flex: 1; overflow: auto; background: #fff; margin: 3px; border: 2px inset #fff; padding: 4px; }
+#tree .row { padding: 1px 4px; cursor: pointer; white-space: nowrap; font-family: "Courier New", monospace; }
+#tree .row:hover { background: #e6efff; }
+#tree .row.sel { background: #316ac5; color: #fff; }
+#tree .root { font-weight: bold; cursor: default; }
+#propbody .line { display: flex; align-items: center; gap: 4px; margin-bottom: 5px; }
+#propbody .line > span { width: 62px; }
+#propbody input[type=text], #propbody select { flex: 1; min-width: 0; font: 12px Tahoma, Arial, sans-serif; }
+#propbody input[type=number] { width: 58px; font: 12px Tahoma, Arial, sans-serif; }
+#propbody .none { color: #666; }
+#status { padding: 3px 8px; border-top: 1px solid #808080; background: #ece9d8; min-height: 16px; }
+#status.err { color: #b00020; }
+
+.modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 50;
+  align-items: center; justify-content: center; }
+.modal .box { background: #ece9d8; border: 2px outset #fff; width: 640px; max-width: 94vw; max-height: 90vh;
+  display: flex; flex-direction: column; box-shadow: 4px 4px 14px rgba(0,0,0,.5); }
+.modal .mbody { padding: 8px; overflow: auto; }
+.modal textarea { width: 100%; height: 260px; box-sizing: border-box; font: 13px "Courier New", monospace;
+  tab-size: 2; white-space: pre; }
+.modal .help { font-size: 11px; color: #333; margin: 6px 0; line-height: 1.45; }
+.modal .help code { background: #fff; padding: 0 3px; }
+.modal .mbtns { padding: 6px 8px; text-align: right; }
+.modal table { width: 100%; border-collapse: collapse; }
+.modal th { text-align: left; border-bottom: 1px solid #999; padding: 2px 4px; }
+.modal td { padding: 3px 4px; }
+
+/* ---------- Jogo ---------- */
+#gameview { display: none; position: fixed; inset: 0; background: #9cc4ee; z-index: 20; }
+#gameview canvas { display: block; width: 100%; height: 100%; }
+#hud-top { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; justify-content: space-between;
+  align-items: flex-start; pointer-events: none; }
+#hud-top > * { pointer-events: auto; }
+.hudbox { background: rgba(255,255,255,.82); border: 1px solid #555; padding: 4px 8px; font: 12px Tahoma, Arial, sans-serif; }
+#hud-msg { position: absolute; top: 28%; left: 50%; transform: translateX(-50%); font: bold 28px Arial, sans-serif;
+  color: #fff; text-shadow: 2px 2px 0 #000; text-align: center; pointer-events: none; display: none; }
+#hud-log { position: absolute; left: 8px; bottom: 8px; width: 360px; max-width: 70vw;
+  background: rgba(0,0,0,.6); color: #fff; font: 12px "Courier New", monospace; padding: 4px 6px; display: none;
+  white-space: pre-wrap; word-wrap: break-word; }
+#gameview button { font: 12px Tahoma, Arial, sans-serif; cursor: pointer; }

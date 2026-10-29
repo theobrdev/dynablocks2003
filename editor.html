@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Level Editor - DynaBlocks</title>
+<link rel="stylesheet" href="editor.css">
+</head>
+<body class="fullapp">
+
+<div id="app">
+  <div id="toolbar">
+    <span class="brand">DynaBlocks Level Editor</span>
+    <input type="text" id="map-name" maxlength="30" placeholder="Map name" value="Untitled Game">
+    <button id="b-new">New</button>
+    <button id="b-open">Open...</button>
+    <button id="b-save">Save</button>
+    <label><input type="checkbox" id="published"> Published</label>
+    <button id="b-play">Play</button>
+    <span class="sep"></span>
+    <button id="m-select" class="on">Select</button>
+    <button id="m-move">Move</button>
+    <button id="m-resize">Resize</button>
+    <span class="sep"></span>
+    <button id="b-part">Create Part</button>
+    <button id="b-script">Create Script</button>
+    <button id="b-dup">Duplicate</button>
+    <button id="b-del">Delete</button>
+    <span class="sep"></span>
+    <a href="index.html" style="margin-left:auto">&laquo; DynaBlocks home</a>
+  </div>
+
+  <div id="main">
+    <div id="viewport"></div>
+    <div id="side">
+      <div class="panel" id="explorer">
+        <div class="ptitle">Explorer</div>
+        <div id="tree"></div>
+      </div>
+      <div class="panel" id="props">
+        <div class="ptitle">Properties</div>
+        <div id="propbody"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="status">Loading...</div>
+</div>
+
+<!-- Editor de script -->
+<div class="modal" id="script-modal">
+  <div class="box">
+    <div class="ptitle" id="script-title">Script</div>
+    <div class="mbody">
+      <textarea id="script-src" spellcheck="false"></textarea>
+      <div class="help">
+        Scripts are written in <b>Lua</b>. Available commands:<br>
+        <code>print(text)</code> <code>message(text)</code> <code>win(text)</code> <code>kill()</code>
+        <code>teleport(x, y, z)</code><br>
+        <code>setColor("PartName", "Red")</code> <code>setPosition("PartName", x, y, z)</code>
+        <code>getPosition("PartName")</code> <code>setVisible("PartName", true/false)</code><br>
+        <code>onTouch("PartName", function() ... end)</code> <code>every(seconds, function() ... end)</code><br>
+        Colors: Gray, Red, Blue, Green, Yellow, White, Black, Orange, Purple, Brown.
+      </div>
+    </div>
+    <div class="mbtns">
+      <button id="script-save">Save script</button>
+      <button id="script-close">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Abrir mapa -->
+<div class="modal" id="open-modal">
+  <div class="box">
+    <div class="ptitle">Open a map</div>
+    <div class="mbody" id="open-list">Loading...</div>
+    <div class="mbtns"><button id="open-close">Close</button></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+  const SUPABASE_URL = 'https://szwirufpcohmizxvrzjq.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_z_FQh2IHQ_I9h-sGmRCOvw_sHmtTFcx';
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+</script>
+<script src="world.js"></script>
+<script src="editor.js"></script>
+</body>
+</html>

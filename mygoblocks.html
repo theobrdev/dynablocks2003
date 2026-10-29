@@ -38,8 +38,8 @@
     </table>
 
     <h2 class="head" id="created-games">My created games</h2>
-    <table class="mygb-table">
-      <tr><th>Game</th><th>Created</th><th>Plays</th></tr>
+    <table class="mygb-table" id="my-games">
+      <tr><th>Game</th><th>Created</th><th>Status</th></tr>
       <tr><td colspan="3" class="empty">You have not created any games. <a href="index.html">Build a game!</a></td></tr>
     </table>
 
@@ -109,6 +109,25 @@
         [s.game, s.score.toLocaleString(), new Date(s.created_at).toLocaleDateString()].forEach(v => {
           const c = document.createElement('td'); c.textContent = v; tr.append(c);
         });
+        t.append(tr);
+      });
+    }
+    const { data: games } = await db.from('levels').select('id, name, published, created_at')
+      .eq('owner_id', user.id).order('created_at', { ascending: false });
+    if (games && games.length) {
+      const t = $('my-games');
+      t.querySelectorAll('tr:nth-child(n+2)').forEach(r => r.remove());
+      games.forEach(g => {
+        const tr = document.createElement('tr');
+        const c1 = document.createElement('td');
+        const a = document.createElement('a');
+        a.href = 'play.html?level=' + g.id; a.textContent = g.name; c1.append(a);
+        const c2 = document.createElement('td'); c2.textContent = new Date(g.created_at).toLocaleDateString();
+        const c3 = document.createElement('td');
+        c3.append(document.createTextNode((g.published ? 'Published' : 'Private') + ' - '));
+        const e = document.createElement('a');
+        e.href = 'editor.html?level=' + g.id; e.textContent = 'edit'; c3.append(e);
+        tr.append(c1, c2, c3);
         t.append(tr);
       });
     }
