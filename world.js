@@ -15,7 +15,7 @@
   // Céus disponíveis. "Old Clouds" usa 6 imagens em img/sky/ (formato clássico: _rt _lf _up _dn _bk _ft).
   // Para criar outro céu, ponha as 6 imagens numa pasta e acrescente uma linha aqui.
   const SKIES = {
-    'Old Clouds': { path: 'img/sky/', prefix: 'null_plainsky512_', ext: 'jpg', color: 0x9cc4ee },
+    'Old Clouds': { path: 'img/sky/', prefix: '120px-Roblox-null_plainsky512_', ext: 'jpg', color: 0x9cc4ee },
     'Plain Sky': { color: 0x9cc4ee }
   };
   const DEFAULT_SKY = 'Old Clouds';
