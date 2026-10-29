@@ -143,3 +143,13 @@ a:hover { text-decoration: underline; }
 #info .head.big { font-size: 20px; text-decoration: none; margin-bottom: 14px; }
 #info h2.head { margin: 20px 0 6px; }
 #info p { margin: 0 0 10px; }
+
+/* Contact */
+#info ul { margin: 0 0 12px; padding-left: 22px; }
+#info li { margin-bottom: 4px; }
+#info code { font-family: "Courier New", monospace; font-size: 12px; }
+#info .notice { border: 1px solid #c9a227; background: #fff8dc; padding: 8px 12px 2px; }
+
+/* Terms of Service */
+#info ol { margin: 0 0 12px; padding-left: 24px; }
+#info ol li { margin-bottom: 8px; }
