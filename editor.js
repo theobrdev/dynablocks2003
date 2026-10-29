@@ -92,7 +92,7 @@
   renderer.setPixelRatio(window.devicePixelRatio || 1);
   container.appendChild(renderer.domElement);
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x9cc4ee);
+  W.applySky(scene, level.sky);
   const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 3000);
   scene.add(new THREE.HemisphereLight(0xffffff, 0x667788, 0.95));
   const sun = new THREE.DirectionalLight(0xffffff, 0.55);
@@ -551,6 +551,8 @@
     levelId = row.id;
     $('map-name').value = row.name || level.map_name;
     $('published').checked = !!row.published;
+    $('map-sky').value = level.sky;
+    W.applySky(scene, level.sky);
     selectedId = null;
     clearHistory();
     rebuildScene();
@@ -600,6 +602,8 @@
     levelId = null;
     $('map-name').value = level.map_name;
     $('published').checked = false;
+    $('map-sky').value = level.sky;
+    W.applySky(scene, level.sky);
     selectedId = null;
     clearHistory();
     rebuildScene();
@@ -663,6 +667,13 @@
   $('menu-close').onclick = () => { $('menu-modal').style.display = 'none'; };
   $('models-close').onclick = () => { $('models-modal').style.display = 'none'; };
   $('open-close').onclick = () => { $('open-modal').style.display = 'none'; };
+  Object.keys(W.SKIES).forEach(k => $('map-sky').appendChild(h('option', { value: k, textContent: k })));
+  $('map-sky').value = level.sky;
+  $('map-sky').onchange = () => {
+    level.sky = $('map-sky').value;
+    W.applySky(scene, level.sky);
+    markDirty();
+  };
   $('map-name').addEventListener('input', markDirty);
   $('published').addEventListener('change', markDirty);
 

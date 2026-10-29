@@ -125,7 +125,7 @@
     renderer.setPixelRatio(window.devicePixelRatio || 1);
     layer.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x9cc4ee);
+    W.applySky(scene, level.sky);
     const camera = new THREE.PerspectiveCamera(65, 1, 0.1, 3000);
     scene.add(new THREE.HemisphereLight(0xffffff, 0x667788, 0.95));
     const sun = new THREE.DirectionalLight(0xffffff, 0.55);

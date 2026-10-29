@@ -12,6 +12,23 @@
   const CONTROLLERS = ['None', 'Kill', 'Goal', 'Checkpoint', 'Coin'];
   const LIMITS = { objects: 300, source: 20000 };
 
+  // Céus disponíveis. "Old Clouds" usa 6 imagens em img/sky/ (formato clássico: _rt _lf _up _dn _bk _ft).
+  // Para criar outro céu, ponha as 6 imagens numa pasta e acrescente uma linha aqui.
+  const SKIES = {
+    'Old Clouds': { path: 'img/sky/', prefix: 'null_plainsky512_', ext: 'jpg', color: 0x9cc4ee },
+    'Plain Sky': { color: 0x9cc4ee }
+  };
+  const DEFAULT_SKY = 'Old Clouds';
+
+  function applySky(scene, name) {
+    const s = SKIES[name] || SKIES[DEFAULT_SKY];
+    scene.background = new THREE.Color(s.color || 0x9cc4ee);         // cor de reserva (se as imagens não carregarem)
+    if (!s.prefix) return;
+    // ordem do Three.js: +x, -x, +y, -y, +z, -z  =  direita, esquerda, cima, baixo, trás, frente
+    const faces = ['rt', 'lf', 'up', 'dn', 'bk', 'ft'].map(f => s.path + s.prefix + f + '.' + s.ext);
+    new THREE.CubeTextureLoader().load(faces, tex => { scene.background = tex; }, undefined, () => {});
+  }
+
   const num = (v, d, lo, hi) => {
     v = Number(v);
     if (!isFinite(v)) v = d;
@@ -28,6 +45,7 @@
   function defaultLevel() {
     return {
       map_name: 'Untitled Game',
+      sky: DEFAULT_SKY,
       objects: [
         { id: 'part_base', type: 'Part', name: 'Baseplate', position: { x: 0, y: -0.5, z: 0 },
           size: { x: 60, y: 1, z: 60 }, color: 'Green', surface: 'Smooth', controller: 'None', hopper: 0 },
@@ -39,7 +57,11 @@
 
   // Limpa qualquer JSON vindo do banco ou do usuário antes de usar
   function cleanLevel(raw) {
-    const out = { map_name: cleanName(raw && raw.map_name, 'Untitled Game'), objects: [] };
+    const out = {
+      map_name: cleanName(raw && raw.map_name, 'Untitled Game'),
+      sky: (raw && SKIES[raw.sky]) ? raw.sky : DEFAULT_SKY,
+      objects: []
+    };
     const list = raw && Array.isArray(raw.objects) ? raw.objects : [];
     const seen = {};
     for (const o of list) {
@@ -189,5 +211,5 @@
     return box;
   }
 
-  global.World = { COLORS, SURFACES, CONTROLLERS, LIMITS, makeCameraMenu, num, cleanName, uid, defaultLevel, cleanLevel, colorOf, applyPart, makePartMesh, OrbitCam };
+  global.World = { SKIES, applySky, COLORS, SURFACES, CONTROLLERS, LIMITS, makeCameraMenu, num, cleanName, uid, defaultLevel, cleanLevel, colorOf, applyPart, makePartMesh, OrbitCam };
 })(window);

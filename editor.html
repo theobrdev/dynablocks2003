@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Level Editor - DynaBlocks</title>
-<link rel="stylesheet" href="editor.css?v=20261029b">
+<link rel="stylesheet" href="editor.css?v=20261029c">
 </head>
 <body class="fullapp editor">
 
@@ -63,6 +63,7 @@
     <div class="mbody">
       <div class="mrow">Map name: <input type="text" id="map-name" maxlength="30" value="Untitled Game">
         <label><input type="checkbox" id="published"> Published</label></div>
+      <div class="mrow">Sky: <select id="map-sky"></select></div>
       <div class="mrow">
         <button id="m-new">New</button>
         <button id="m-open">Open...</button>
@@ -134,8 +135,8 @@
   const SUPABASE_KEY = 'sb_publishable_z_FQh2IHQ_I9h-sGmRCOvw_sHmtTFcx';
   const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 </script>
-<script src="world.js?v=20261029b"></script>
-<script src="game.js?v=20261029b"></script>
-<script src="editor.js?v=20261029b"></script>
+<script src="world.js?v=20261029c"></script>
+<script src="game.js?v=20261029c"></script>
+<script src="editor.js?v=20261029c"></script>
 </body>
 </html>
