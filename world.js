@@ -5,8 +5,11 @@
 
   const COLORS = {
     Gray: 0x9a9a9a, Red: 0xcc2222, Blue: 0x2a5bd7, Green: 0x2e9e3e, Yellow: 0xe8d020,
-    White: 0xf0f0f0, Black: 0x222222, Orange: 0xe07020, Purple: 0x8844bb, Brown: 0x7a4a22
+    White: 0xf0f0f0, Black: 0x222222, Orange: 0xe07020, Purple: 0x8844bb, Brown: 0x7a4a22,
+    Cyan: 0x20c8d8, Magenta: 0xcc2aa8
   };
+  const SURFACES = ['Smooth', 'Ice', 'Sticky'];
+  const CONTROLLERS = ['None', 'Kill', 'Goal', 'Checkpoint', 'Coin'];
   const LIMITS = { objects: 300, source: 20000 };
 
   const num = (v, d, lo, hi) => {
@@ -27,9 +30,9 @@
       map_name: 'Untitled Game',
       objects: [
         { id: 'part_base', type: 'Part', name: 'Baseplate', position: { x: 0, y: -0.5, z: 0 },
-          size: { x: 60, y: 1, z: 60 }, color: 'Green' },
+          size: { x: 60, y: 1, z: 60 }, color: 'Green', surface: 'Smooth', controller: 'None', hopper: 0 },
         { id: 'part_spawn', type: 'Part', name: 'SpawnBlock', position: { x: 0, y: 0.5, z: 0 },
-          size: { x: 6, y: 1, z: 6 }, color: 'Gray' }
+          size: { x: 6, y: 1, z: 6 }, color: 'Gray', surface: 'Smooth', controller: 'None', hopper: 0 }
       ]
     };
   }
@@ -51,7 +54,10 @@
           id, type: 'Part', name: cleanName(o.name, 'Part'),
           position: { x: num(p.x, 0, -2000, 2000), y: num(p.y, 0, -2000, 2000), z: num(p.z, 0, -2000, 2000) },
           size: { x: num(s.x, 2, 0.2, 500), y: num(s.y, 1, 0.2, 500), z: num(s.z, 2, 0.2, 500) },
-          color: COLORS[o.color] !== undefined ? o.color : 'Gray'
+          color: COLORS[o.color] !== undefined ? o.color : 'Gray',
+          surface: SURFACES.includes(o.surface) ? o.surface : 'Smooth',
+          controller: CONTROLLERS.includes(o.controller) ? o.controller : 'None',
+          hopper: Math.round(num(o.hopper, 0, 0, 3))
         });
       } else {
         out.objects.push({
@@ -126,6 +132,20 @@
       }, { passive: false });
       this.update();
     }
+    rotate(dx, dy) {
+      this.theta -= dx * 0.008;
+      this.phi = Math.min(Math.PI - 0.05, Math.max(0.05, this.phi - dy * 0.008));
+      this.update();
+    }
+    zoom(f) {
+      this.radius = Math.min(400, Math.max(3, this.radius * f));
+      this.update();
+    }
+    reset() {
+      this.target.set(0, 0, 0);
+      this.theta = 0.7; this.phi = 1.0; this.radius = 32;
+      this.update();
+    }
     update() {
       const sp = Math.sin(this.phi);
       this.camera.position.set(
@@ -137,5 +157,37 @@
     }
   }
 
-  global.World = { COLORS, LIMITS, num, cleanName, uid, defaultLevel, cleanLevel, colorOf, applyPart, makePartMesh, OrbitCam };
+  // Painel "CameraMenu" (setas para girar, zoom e centralizar). h = { rotate(dx,dy), zoom(f), reset() }
+  function makeCameraMenu(h) {
+    const box = document.createElement('div');
+    box.className = 'camera-menu';
+    const title = document.createElement('div');
+    title.className = 'cm-title';
+    title.textContent = 'CameraMenu';
+    const grid = document.createElement('div');
+    grid.className = 'cm-grid';
+    box.append(title, grid);
+    const defs = [
+      ['\u2295', 'Zoom in', () => h.zoom(0.9)],  ['\u25B2', 'Look from above', () => h.rotate(0, 6)],   ['\u2296', 'Zoom out', () => h.zoom(1.1)],
+      ['\u25C0', 'Rotate left', () => h.rotate(6, 0)], ['\u25CE', 'Reset camera', () => h.reset()], ['\u25B6', 'Rotate right', () => h.rotate(-6, 0)],
+      null, ['\u25BC', 'Look from below', () => h.rotate(0, -6)], null
+    ];
+    defs.forEach(d => {
+      const b = document.createElement('button');
+      if (!d) { b.className = 'cm-empty'; b.disabled = true; grid.appendChild(b); return; }
+      b.textContent = d[0]; b.title = d[1];
+      if (d[1] === 'Reset camera') b.onclick = d[2];
+      else {
+        let t = null;
+        const stopIt = () => { clearInterval(t); t = null; };
+        b.addEventListener('mousedown', e => { e.preventDefault(); d[2](); stopIt(); t = setInterval(d[2], 60); });
+        b.addEventListener('mouseleave', stopIt);
+        window.addEventListener('mouseup', stopIt);
+      }
+      grid.appendChild(b);
+    });
+    return box;
+  }
+
+  global.World = { COLORS, SURFACES, CONTROLLERS, LIMITS, makeCameraMenu, num, cleanName, uid, defaultLevel, cleanLevel, colorOf, applyPart, makePartMesh, OrbitCam };
 })(window);

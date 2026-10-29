@@ -6,45 +6,91 @@
 <title>Level Editor - DynaBlocks</title>
 <link rel="stylesheet" href="editor.css">
 </head>
-<body class="fullapp">
+<body class="fullapp editor">
 
-<div id="app">
-  <div id="toolbar">
-    <span class="brand">DynaBlocks Level Editor</span>
-    <input type="text" id="map-name" maxlength="30" placeholder="Map name" value="Untitled Game">
-    <button id="b-new">New</button>
-    <button id="b-open">Open...</button>
-    <button id="b-save">Save</button>
-    <label><input type="checkbox" id="published"> Published</label>
-    <button id="b-play">Play</button>
-    <span class="sep"></span>
-    <button id="m-select" class="on">Select</button>
-    <button id="m-move">Move</button>
-    <button id="m-resize">Resize</button>
-    <span class="sep"></span>
-    <button id="b-part">Create Part</button>
-    <button id="b-script">Create Script</button>
-    <button id="b-dup">Duplicate</button>
-    <button id="b-del">Delete</button>
-    <span class="sep"></span>
-    <a href="index.html" style="margin-left:auto">&laquo; DynaBlocks home</a>
+<div id="viewport"></div>
+
+<!-- Barra de ferramentas (esquerda) -->
+<div id="leftbar">
+  <button id="t-stop" class="stop" disabled title="Stop the game and go back to building">STOP</button>
+  <button id="t-select" class="tool on" title="Select: click a block, drag to move it (Shift = height)">&#10148;</button>
+  <div class="pair">
+    <button id="t-resize" class="tool" title="Resize: drag left/right = X, up/down = Z (Shift = height)">&#10530;</button>
+    <button id="t-rotate" class="tool" title="Rotate 90&deg;: click a block (or press R)">&#10227;</button>
   </div>
+  <div class="pair small">
+    <button id="t-undo" title="Undo (Ctrl+Z)">&#8630;</button>
+    <button id="t-redo" title="Redo (Ctrl+Y)">&#8631;</button>
+  </div>
+  <button id="t-dup" class="txt">Duplicate</button>
+  <button id="t-del" class="trash" title="Delete the selected block">&#128465;</button>
+  <button id="t-menu" class="txt menu">MENU</button>
+</div>
 
-  <div id="main">
-    <div id="viewport"></div>
-    <div id="side">
-      <div class="panel" id="explorer">
-        <div class="ptitle">Explorer</div>
-        <div id="tree"></div>
+<!-- Abas de propriedades (embaixo à esquerda) -->
+<div id="proptabs">
+  <div class="tab" data-tab="model">Model</div>
+  <div class="tab" data-tab="surface">Surface</div>
+  <div class="tab" data-tab="color">Color</div>
+  <div class="tab" data-tab="controller">Controller</div>
+  <div class="tab" data-tab="hopper">Hopper</div>
+</div>
+<div id="proppanel"></div>
+
+<!-- Explorer (janela opcional, abre pelo MENU) -->
+<div id="explorer-win">
+  <div class="ptitle">Explorer <a href="#" id="explorer-x">x</a></div>
+  <div id="tree"></div>
+</div>
+
+<!-- Barra de baixo: menu de blocos -->
+<div id="bottombar">
+  <button id="c-prev" class="arrow" title="Previous category">&#9664;</button>
+  <div class="catbox">
+    <select id="c-cat"></select>
+    <a href="#" id="c-all">All Models...</a>
+  </div>
+  <button id="c-next" class="arrow" title="Next category">&#9654;</button>
+  <div id="c-items"></div>
+  <span id="status"></span>
+  <button id="b-play" title="Run the game">&#9654; Play</button>
+</div>
+
+<!-- MENU -->
+<div class="modal" id="menu-modal">
+  <div class="box">
+    <div class="ptitle">Menu</div>
+    <div class="mbody">
+      <div class="mrow">Map name: <input type="text" id="map-name" maxlength="30" value="Untitled Game">
+        <label><input type="checkbox" id="published"> Published</label></div>
+      <div class="mrow">
+        <button id="m-new">New</button>
+        <button id="m-open">Open...</button>
+        <button id="m-save">Save</button>
+        <button id="m-explorer">Show / hide Explorer</button>
       </div>
-      <div class="panel" id="props">
-        <div class="ptitle">Properties</div>
-        <div id="propbody"></div>
+      <div class="mrow"><b>Scripts</b> <button id="m-newscript">Create Script</button></div>
+      <div id="menu-scripts"></div>
+      <div class="mrow help">
+        Controllers (no code needed): <b>Kill</b> sends you back to the start, <b>Goal</b> wins the game,
+        <b>Checkpoint</b> moves your start point, <b>Coin</b> gives +100 score.<br>
+        Keys: Ctrl+S save &middot; Ctrl+Z / Ctrl+Y undo / redo &middot; R rotate &middot; Delete remove &middot; Esc stop the game.
       </div>
     </div>
+    <div class="mbtns">
+      <a href="index.html" style="float:left">&laquo; Back to DynaBlocks</a>
+      <button id="menu-close">Close</button>
+    </div>
   </div>
+</div>
 
-  <div id="status">Loading...</div>
+<!-- Todos os modelos -->
+<div class="modal" id="models-modal">
+  <div class="box">
+    <div class="ptitle">All Models</div>
+    <div class="mbody" id="models-list"></div>
+    <div class="mbtns"><button id="models-close">Close</button></div>
+  </div>
 </div>
 
 <!-- Editor de script -->
@@ -57,10 +103,11 @@
         Scripts are written in <b>Lua</b>. Available commands:<br>
         <code>print(text)</code> <code>message(text)</code> <code>win(text)</code> <code>kill()</code>
         <code>teleport(x, y, z)</code><br>
+        <code>addScore(n)</code> <code>setScore(n)</code> <code>getScore()</code><br>
         <code>setColor("PartName", "Red")</code> <code>setPosition("PartName", x, y, z)</code>
         <code>getPosition("PartName")</code> <code>setVisible("PartName", true/false)</code><br>
         <code>onTouch("PartName", function() ... end)</code> <code>every(seconds, function() ... end)</code><br>
-        Colors: Gray, Red, Blue, Green, Yellow, White, Black, Orange, Purple, Brown.
+        Colors: Gray, Red, Blue, Green, Yellow, White, Black, Orange, Purple, Brown, Cyan, Magenta.
       </div>
     </div>
     <div class="mbtns">
@@ -80,6 +127,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fengari-web@0.1.4/dist/fengari-web.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
   const SUPABASE_URL = 'https://szwirufpcohmizxvrzjq.supabase.co';
@@ -87,6 +135,7 @@
   const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 </script>
 <script src="world.js"></script>
+<script src="game.js"></script>
 <script src="editor.js"></script>
 </body>
 </html>

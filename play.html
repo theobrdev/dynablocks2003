@@ -46,14 +46,11 @@
 <div id="gameview">
   <div id="hud-top">
     <div class="hudbox"><b id="hud-title"></b><br>
-      <small>W A S D move &middot; Space jump &middot; right-drag look &middot; wheel zoom</small></div>
-    <div class="hudbox">
+      <small>W A S D move &middot; Space jump &middot; right-drag look &middot; wheel zoom</small><br>
       <button id="hud-respawn">Respawn</button>
       <button id="hud-exit">Exit</button>
     </div>
   </div>
-  <div id="hud-msg"></div>
-  <div id="hud-log"></div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -65,6 +62,7 @@
   const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 </script>
 <script src="world.js"></script>
+<script src="game.js"></script>
 <script src="play.js"></script>
 </body>
 </html>

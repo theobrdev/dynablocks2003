@@ -1,62 +1,133 @@
-/* Estilo do Level Editor e do jogo (editor.html e play.html) */
-body.fullapp { margin: 0; overflow: hidden; background: #ece9d8; font: 12px Tahoma, Arial, sans-serif; }
+/* Level Editor e jogo do DynaBlocks (editor.html e play.html) */
+body.fullapp { margin: 0; overflow: hidden; background: #9cc4ee; font: 12px Tahoma, Arial, sans-serif; }
+button { font-family: Tahoma, Arial, sans-serif; }
 
-/* ---------- Editor ---------- */
-#app { position: fixed; inset: 0; display: flex; flex-direction: column; }
-#toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 4px 6px;
-  background: linear-gradient(#f6f4ea, #d8d4c0); border-bottom: 1px solid #808080; }
-#toolbar .brand { font-weight: bold; margin-right: 6px; }
-#toolbar .sep { width: 1px; height: 20px; background: #999; margin: 0 4px; }
-#toolbar button { font: 12px Tahoma, Arial, sans-serif; padding: 3px 9px; cursor: pointer;
-  border: 2px outset #fff; background: #ece9d8; }
-#toolbar button:active, #toolbar button.on { border-style: inset; background: #cfd9ee; }
-#toolbar input[type=text] { width: 170px; font: 12px Tahoma, Arial, sans-serif; padding: 2px 4px; }
-#toolbar label { display: inline-flex; align-items: center; gap: 3px; }
-#main { flex: 1; display: flex; min-height: 0; }
-#viewport { flex: 1; min-width: 0; position: relative; background: #9cc4ee; }
+/* ---------- Área 3D ---------- */
+#viewport { position: fixed; inset: 0 0 46px 0; background: #9cc4ee; }
+body.playing #viewport { bottom: 0; }
 #viewport canvas { display: block; width: 100%; height: 100%; }
-#side { width: 270px; display: flex; flex-direction: column; border-left: 1px solid #808080; background: #ece9d8; }
-.panel { display: flex; flex-direction: column; min-height: 0; }
-#explorer { flex: 1; border-bottom: 1px solid #808080; }
-#props { flex: 1; }
-.ptitle { background: linear-gradient(#2a6fd6, #0a3fa0); color: #fff; font-weight: bold; padding: 2px 6px; }
-#tree, #propbody { flex: 1; overflow: auto; background: #fff; margin: 3px; border: 2px inset #fff; padding: 4px; }
+.gamelayer { position: absolute; inset: 0; overflow: hidden; }
+.gamelayer canvas { display: block; }
+
+/* ---------- Timer / Score / mensagens ---------- */
+.gv-hud { position: absolute; top: 6px; right: 12px; text-align: right; pointer-events: none;
+  font: 30px/1.05 Impact, "Arial Black", sans-serif; letter-spacing: .5px; color: #8fe01c;
+  text-shadow: -2px -2px 0 #1f4a12, 2px -2px 0 #1f4a12, -2px 2px 0 #1f4a12, 2px 2px 0 #1f4a12, 0 3px 0 #123009; }
+.gv-msg { display: none; position: absolute; top: 28%; left: 50%; transform: translateX(-50%); pointer-events: none;
+  font: bold 30px Arial, sans-serif; color: #fff; text-align: center;
+  text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000; }
+.gv-log { display: none; position: absolute; left: 70px; bottom: 54px; width: 360px; max-width: 60vw;
+  background: rgba(0,0,0,.6); color: #fff; font: 12px "Courier New", monospace; padding: 4px 6px;
+  white-space: pre-wrap; word-wrap: break-word; pointer-events: none; }
+
+/* ---------- Barra de ferramentas (esquerda) ---------- */
+#leftbar { position: fixed; left: 0; top: 40px; width: 58px; z-index: 30; padding: 8px 4px; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: center; gap: 9px; background: rgba(205,205,205,.62); }
+#leftbar button { cursor: pointer; }
+.stop { width: 48px; height: 36px; border: 2px solid #fff; border-radius: 8px; color: #fff; font: bold 17px Arial Black, Arial, sans-serif;
+  background: radial-gradient(circle at 30% 22%, #ff8a78, #d01800 62%, #860a00); letter-spacing: .5px;
+  text-shadow: -1px -1px 0 #5a0800, 1px 1px 0 #5a0800; box-shadow: 0 2px 4px rgba(0,0,0,.5); }
+.stop:disabled { opacity: .45; cursor: default; }
+.tool { width: 36px; height: 36px; border-radius: 50%; border: 2px solid #fff; color: #fff; font-size: 19px; line-height: 1;
+  background: radial-gradient(circle at 32% 25%, #8fd4ff, #1d5fd6 65%, #123e99); box-shadow: 0 2px 4px rgba(0,0,0,.45); padding: 0; }
+.tool.on { outline: 3px solid #ffe14a; }
+.pair { display: flex; flex-direction: column; gap: 7px; }
+.pair.small { flex-direction: row; gap: 4px; }
+.pair.small button { width: 24px; height: 24px; border: 1px solid #777; border-radius: 4px; background: #e4e4e4; font-size: 16px; padding: 0; }
+.pair.small button:disabled, #t-dup:disabled, #t-del:disabled { opacity: .4; cursor: default; }
+.txt { background: none; border: none; font: 12px Tahoma, Arial, sans-serif; color: #555; padding: 2px 0; }
+.txt:hover:not(:disabled) { color: #000; text-decoration: underline; }
+.menu { font-weight: bold; font-size: 13px; color: #fff; text-shadow: -1px -1px 0 #444, 1px 1px 0 #444; }
+.trash { background: none; border: none; font-size: 28px; padding: 0; }
+body.playing #leftbar button:not(#t-stop) { opacity: .3; pointer-events: none; }
+
+/* ---------- Abas de propriedades ---------- */
+#proptabs { position: fixed; left: 0; bottom: 46px; z-index: 30; background: rgba(205,205,205,.55); padding: 4px 6px 4px 3px; min-width: 76px; }
+#proptabs .tab { color: #00e5ff; font: bold 14px "Trebuchet MS", Tahoma, sans-serif; padding: 2px 6px; margin: 1px 0; cursor: pointer;
+  text-shadow: 0 0 2px #035; border: 1px solid transparent; }
+#proptabs .tab:hover { color: #fff; }
+#proptabs .tab.on { border-color: #00e5ff; background: rgba(0,60,90,.45); }
+#proppanel { display: none; position: fixed; left: 86px; bottom: 52px; z-index: 31; width: 270px; max-height: 62vh; overflow: auto;
+  background: rgba(236,233,216,.97); border: 2px outset #fff; box-shadow: 3px 3px 10px rgba(0,0,0,.4); }
+#proppanel .ptitle { margin-bottom: 6px; }
+#proppanel .pbody { padding: 0 8px 8px; }
+#proppanel .none { color: #555; padding: 4px 8px 10px; }
+#proppanel .line { display: flex; align-items: center; gap: 4px; margin-bottom: 5px; }
+#proppanel .line > span { width: 58px; }
+#proppanel input[type=text] { flex: 1; min-width: 0; font: 12px Tahoma, Arial, sans-serif; }
+#proppanel input[type=number] { width: 56px; font: 12px Tahoma, Arial, sans-serif; }
+#proppanel label.opt { display: block; margin: 2px 0 6px; cursor: pointer; }
+#proppanel label.opt small { display: block; color: #555; margin-left: 20px; }
+.swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.swatches button { height: 30px; border: 2px solid #777; border-radius: 4px; cursor: pointer; padding: 0; }
+.swatches button.on { border: 3px solid #fff; outline: 2px solid #000; }
+
+/* ---------- Explorer ---------- */
+#explorer-win { display: none; position: fixed; right: 10px; top: 80px; width: 230px; max-height: 45vh; z-index: 32;
+  background: #ece9d8; border: 2px outset #fff; box-shadow: 3px 3px 10px rgba(0,0,0,.4); flex-direction: column; }
+#explorer-win .ptitle a { float: right; color: #fff; text-decoration: none; }
+#tree { overflow: auto; background: #fff; margin: 3px; border: 2px inset #fff; padding: 4px; }
 #tree .row { padding: 1px 4px; cursor: pointer; white-space: nowrap; font-family: "Courier New", monospace; }
 #tree .row:hover { background: #e6efff; }
 #tree .row.sel { background: #316ac5; color: #fff; }
 #tree .root { font-weight: bold; cursor: default; }
-#propbody .line { display: flex; align-items: center; gap: 4px; margin-bottom: 5px; }
-#propbody .line > span { width: 62px; }
-#propbody input[type=text], #propbody select { flex: 1; min-width: 0; font: 12px Tahoma, Arial, sans-serif; }
-#propbody input[type=number] { width: 58px; font: 12px Tahoma, Arial, sans-serif; }
-#propbody .none { color: #666; }
-#status { padding: 3px 8px; border-top: 1px solid #808080; background: #ece9d8; min-height: 16px; }
-#status.err { color: #b00020; }
 
-.modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 50;
-  align-items: center; justify-content: center; }
+/* ---------- Barra de baixo ---------- */
+#bottombar { position: fixed; left: 0; right: 0; bottom: 0; height: 46px; z-index: 30; box-sizing: border-box;
+  display: flex; align-items: center; gap: 8px; padding: 0 8px; border-top: 2px solid #fff;
+  background: linear-gradient(#f6efd6, #d8cfa6); }
+body.playing #bottombar { display: none; }
+#bottombar .arrow { width: 28px; height: 30px; border: none; background: none; color: #e07a00; font-size: 22px; cursor: pointer; padding: 0; }
+#bottombar .arrow:hover { color: #ff9a1a; }
+.catbox { display: flex; flex-direction: column; line-height: 1.15; }
+.catbox select { font: 12px Tahoma, Arial, sans-serif; min-width: 92px; }
+.catbox a { font-size: 11px; color: #1a4fb0; }
+#c-items { display: flex; align-items: center; gap: 7px; margin-left: 6px; }
+.item { width: 34px; height: 34px; border: 1px solid transparent; background: none; border-radius: 4px; cursor: pointer; padding: 0;
+  display: flex; align-items: center; justify-content: center; }
+.item:hover { background: rgba(255,255,255,.65); border-color: #999; }
+.item i { display: block; background: var(--c); border: 1px solid rgba(0,0,0,.65); box-shadow: inset 0 0 0 1px rgba(255,255,255,.35); }
+.item i.box { width: 20px; height: 14px; } .item i.tall { width: 10px; height: 24px; }
+.item i.flat { width: 26px; height: 8px; } .item i.wide { width: 26px; height: 18px; }
+.item i.round { width: 18px; height: 18px; border-radius: 50%; }
+#status { flex: 1; min-width: 0; margin-left: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #333; }
+#status.err { color: #b00020; }
+#b-play { padding: 5px 14px; font-weight: bold; cursor: pointer; border: 2px outset #fff; border-radius: 4px;
+  background: linear-gradient(#9be36a, #3d9a1c); color: #fff; text-shadow: 1px 1px 0 #1d5a0a; }
+
+/* ---------- CameraMenu ---------- */
+.camera-menu { position: fixed; right: 0; bottom: 46px; z-index: 30; width: 132px; padding: 4px 6px 6px; box-sizing: border-box;
+  background: rgba(205,205,205,.6); }
+body.playing .camera-menu { bottom: 6px; }
+#gameview .camera-menu { bottom: 6px; }
+.cm-title { color: #006c80; font: bold 12px "Trebuchet MS", Tahoma, sans-serif; margin-bottom: 3px; }
+.cm-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; }
+.cm-grid button { height: 28px; border: 1px solid #888; border-radius: 4px; background: linear-gradient(#fafafa, #c9c9c9);
+  cursor: pointer; font-size: 15px; padding: 0; color: #333; }
+.cm-grid button:active { background: #bcd; }
+.cm-grid .cm-empty { visibility: hidden; }
+
+/* ---------- Janelas (menu, scripts, abrir...) ---------- */
+.ptitle { background: linear-gradient(#2a6fd6, #0a3fa0); color: #fff; font-weight: bold; padding: 2px 6px; }
+.modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 50; align-items: center; justify-content: center; }
 .modal .box { background: #ece9d8; border: 2px outset #fff; width: 640px; max-width: 94vw; max-height: 90vh;
   display: flex; flex-direction: column; box-shadow: 4px 4px 14px rgba(0,0,0,.5); }
 .modal .mbody { padding: 8px; overflow: auto; }
-.modal textarea { width: 100%; height: 260px; box-sizing: border-box; font: 13px "Courier New", monospace;
-  tab-size: 2; white-space: pre; }
+.modal textarea { width: 100%; height: 260px; box-sizing: border-box; font: 13px "Courier New", monospace; tab-size: 2; white-space: pre; }
 .modal .help { font-size: 11px; color: #333; margin: 6px 0; line-height: 1.45; }
 .modal .help code { background: #fff; padding: 0 3px; }
 .modal .mbtns { padding: 6px 8px; text-align: right; }
+.modal .mrow { margin-bottom: 8px; }
+.modal .mrow input[type=text] { width: 190px; }
 .modal table { width: 100%; border-collapse: collapse; }
 .modal th { text-align: left; border-bottom: 1px solid #999; padding: 2px 4px; }
 .modal td { padding: 3px 4px; }
+.models-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; }
+.models-grid button { display: flex; align-items: center; gap: 6px; padding: 4px 6px; text-align: left; cursor: pointer; }
+.models-grid .cat { grid-column: 1 / -1; font-weight: bold; margin-top: 6px; }
 
-/* ---------- Jogo ---------- */
+/* ---------- Página de jogar (play.html) ---------- */
 #gameview { display: none; position: fixed; inset: 0; background: #9cc4ee; z-index: 20; }
-#gameview canvas { display: block; width: 100%; height: 100%; }
-#hud-top { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; justify-content: space-between;
-  align-items: flex-start; pointer-events: none; }
-#hud-top > * { pointer-events: auto; }
-.hudbox { background: rgba(255,255,255,.82); border: 1px solid #555; padding: 4px 8px; font: 12px Tahoma, Arial, sans-serif; }
-#hud-msg { position: absolute; top: 28%; left: 50%; transform: translateX(-50%); font: bold 28px Arial, sans-serif;
-  color: #fff; text-shadow: 2px 2px 0 #000; text-align: center; pointer-events: none; display: none; }
-#hud-log { position: absolute; left: 8px; bottom: 8px; width: 360px; max-width: 70vw;
-  background: rgba(0,0,0,.6); color: #fff; font: 12px "Courier New", monospace; padding: 4px 6px; display: none;
-  white-space: pre-wrap; word-wrap: break-word; }
-#gameview button { font: 12px Tahoma, Arial, sans-serif; cursor: pointer; }
+#hud-top { position: absolute; top: 8px; left: 8px; z-index: 5; }
+.hudbox { background: rgba(255,255,255,.82); border: 1px solid #555; padding: 4px 8px; }
+#gameview button { cursor: pointer; }
