@@ -30,6 +30,11 @@
     <p><a href="index.html">&laquo; Back to the home page</a></p>
   </div>
 
+  <div id="pending">
+    <h2 class="head">Pending assets</h2>
+    <div class="agrid" id="pending-grid">Loading...</div>
+  </div>
+
   <div id="footer">
     <div class="copy">Copyright 2003 DYNABLOCKS, Inc. &nbsp;Patents pending</div>
   </div>
@@ -44,7 +49,54 @@
   const $ = id => document.getElementById(id);
   const say = (t, ok) => { $('msg').textContent = t; $('msg').className = ok ? 'ok' : 'err'; };
 
-  db.auth.getSession().then(({ data }) => { if (!data.session) location.href = 'signin.html'; });
+  function el(tag, props, ...kids) {
+    const e = document.createElement(tag);
+    if (props) for (const k in props) e[k] = props[k];
+    kids.forEach(k => e.append(k));
+    return e;
+  }
+
+  async function loadPending() {
+    const grid = $('pending-grid');
+    const { data, error } = await db.from('assets')
+      .select('id, name, path, created_at, profiles(username)')
+      .eq('approved', false).order('created_at', { ascending: true });
+    grid.innerHTML = '';
+    if (error) { grid.textContent = error.message; return; }
+    if (!data.length) { grid.textContent = 'Nothing waiting for approval.'; return; }
+
+    data.forEach(a => {
+      const url = db.storage.from('assets').getPublicUrl(a.path).data.publicUrl;
+      const by = (a.profiles && a.profiles.username) || '?';
+      const yes = el('button', { textContent: 'Yes, approve', type: 'button' });
+      const no  = el('button', { textContent: 'No, reject', type: 'button' });
+
+      yes.onclick = async () => {
+        const { data: ok, error: e } = await db.from('assets').update({ approved: true }).eq('id', a.id).select();
+        if (e || !ok.length) return alert(e ? e.message : 'Not allowed (are you the admin?).');
+        loadPending();
+      };
+      no.onclick = async () => {
+        if (!confirm('Reject and delete "' + a.name + '"?')) return;
+        const { data: gone, error: e } = await db.from('assets').delete().eq('id', a.id).select();
+        if (e || !gone.length) return alert(e ? e.message : 'Not allowed (are you the admin?).');
+        await db.storage.from('assets').remove([a.path]);
+        loadPending();
+      };
+
+      grid.append(el('div', { className: 'acard' },
+        el('a', { href: url, target: '_blank', rel: 'noopener noreferrer' },
+          el('img', { src: url, alt: a.name })),
+        el('div', { className: 'aname', textContent: a.name }),
+        el('small', { textContent: 'by ' + by }),
+        el('div', null, yes), el('div', null, no)));
+    });
+  }
+
+  db.auth.getSession().then(({ data }) => {
+    if (!data.session) { location.href = 'signin.html'; return; }
+    loadPending();
+  });
 
   $('a-go').onclick = async () => {
     const { data, error } = await db.rpc('award_points', {

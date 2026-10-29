@@ -153,6 +153,10 @@
       if (f.size > MAX_BYTES) return say('The image must be 1 MB or smaller.', false);
       if (title.length < 3) return say('Give it a name (at least 3 characters).', false);
 
+      const { count } = await db.from('assets').select('id', { count: 'exact', head: true })
+        .eq('owner_id', me).eq('approved', false);
+      if (count >= 5) return say('You can have at most 5 uploads waiting for approval.', false);
+
       btn.disabled = true; say('Uploading...', true);
       const path = me + '/' + crypto.randomUUID() + '.' + TYPES[f.type];
       const up = await db.storage.from('assets').upload(path, f, { contentType: f.type });
@@ -162,9 +166,7 @@
       if (ins.error) {
         await db.storage.from('assets').remove([path]);
         btn.disabled = false;
-        const m = /row-level security|policy/i.test(ins.error.message)
-          ? 'You can have at most 5 uploads waiting for approval.' : ins.error.message;
-        return say(m, false);
+        return say(ins.error.message, false);
       }
       file.value = ''; name.value = ''; btn.disabled = false;
       say('Uploaded! It will show up after approval.', true);

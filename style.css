@@ -133,3 +133,7 @@ a:hover { text-decoration: underline; }
 #upload-box button { margin-top: 8px; }
 #umsg.ok { color: #2a7a2a; } #umsg.err { color: #b00020; }
 #assets .empty { color: #555; }
+
+/* Admin: pending assets */
+#pending { width: 680px; max-width: 96vw; margin: 10px auto 30px; font-size: 13px; }
+#pending h2.head { margin: 10px 0 10px; }
