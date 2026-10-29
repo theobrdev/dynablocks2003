@@ -137,3 +137,9 @@ a:hover { text-decoration: underline; }
 /* Admin: pending assets */
 #pending { width: 680px; max-width: 96vw; margin: 10px auto 30px; font-size: 13px; }
 #pending h2.head { margin: 10px 0 10px; }
+
+/* DynaBlocks Info */
+#info { width: 600px; max-width: 96vw; margin: 30px auto 40px; font-size: 13px; line-height: 1.5; }
+#info .head.big { font-size: 20px; text-decoration: none; margin-bottom: 14px; }
+#info h2.head { margin: 20px 0 6px; }
+#info p { margin: 0 0 10px; }
