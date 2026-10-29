@@ -4,6 +4,16 @@
   const W = window.World;
   const $ = id => document.getElementById(id);
 
+  // Aviso claro se algum arquivo do site estiver desatualizado (cache do navegador ou arquivo não enviado)
+  if (!W || !W.makeCameraMenu || !window.Game || !window.THREE) {
+    document.body.insertAdjacentHTML('afterbegin',
+      '<div style="position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:999;background:#fff3cd;' +
+      'border:2px solid #b58100;padding:10px 14px;font:13px Arial,sans-serif;max-width:520px;box-shadow:3px 3px 10px rgba(0,0,0,.4)">' +
+      '<b>Some editor files are out of date.</b><br>Upload the latest <code>editor.html</code>, <code>editor.css</code>, ' +
+      '<code>editor.js</code>, <code>world.js</code> and <code>game.js</code> to GitHub, wait a minute and press Ctrl+F5.</div>');
+    return;
+  }
+
   // ---------- estado ("a memória do editor") ----------
   let level = W.defaultLevel();      // { map_name, objects: [...] }
   let levelId = null;                // id no Supabase (null = ainda não salvo)
