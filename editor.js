@@ -145,6 +145,14 @@
     if (meshes[obj.id]) W.applyPart(meshes[obj.id], obj);
   }
 
+  // aplica o céu do mapa e avisa na barra de status se as imagens não forem encontradas
+  function setSky(showOk) {
+    W.applySky(scene, level.sky, ok => {
+      if (!ok) status('Sky images not found in img/sky/ - showing plain blue. Check the folder and file names.', true);
+      else if (showOk) status('Sky: ' + level.sky);
+    });
+  }
+
   // ---------- Explorer (janela opcional) ----------
   function renderExplorer() {
     const tree = $('tree');
@@ -552,7 +560,7 @@
     $('map-name').value = row.name || level.map_name;
     $('published').checked = !!row.published;
     $('map-sky').value = level.sky;
-    W.applySky(scene, level.sky);
+    setSky(false);
     selectedId = null;
     clearHistory();
     rebuildScene();
@@ -603,7 +611,7 @@
     $('map-name').value = level.map_name;
     $('published').checked = false;
     $('map-sky').value = level.sky;
-    W.applySky(scene, level.sky);
+    setSky(false);
     selectedId = null;
     clearHistory();
     rebuildScene();
@@ -671,7 +679,7 @@
   $('map-sky').value = level.sky;
   $('map-sky').onchange = () => {
     level.sky = $('map-sky').value;
-    W.applySky(scene, level.sky);
+    setSky(true);
     markDirty();
   };
   $('map-name').addEventListener('input', markDirty);
@@ -709,6 +717,7 @@
     renderAll();
     updateUndoButtons();
     setTool('select');
+    setSky(false);
     const id = parseInt(new URLSearchParams(location.search).get('level'), 10);
     if (id) await openById(id);
   }

@@ -20,13 +20,20 @@
   };
   const DEFAULT_SKY = 'Old Clouds';
 
-  function applySky(scene, name) {
+  // done(ok) é opcional: ok = false quando as imagens do céu não foram encontradas
+  function applySky(scene, name, done) {
     const s = SKIES[name] || SKIES[DEFAULT_SKY];
+    // "senha" desta chamada: se o usuário trocar de céu antes das imagens carregarem, a resposta antiga é ignorada
+    scene.userData.skyToken = (scene.userData.skyToken || 0) + 1;
+    const token = scene.userData.skyToken;
     scene.background = new THREE.Color(s.color || 0x9cc4ee);         // cor de reserva (se as imagens não carregarem)
-    if (!s.prefix) return;
+    if (!s.prefix) { if (done) done(true); return; }
     // ordem do Three.js: +x, -x, +y, -y, +z, -z  =  direita, esquerda, cima, baixo, trás, frente
     const faces = ['rt', 'lf', 'up', 'dn', 'bk', 'ft'].map(f => s.path + s.prefix + f + '.' + s.ext);
-    new THREE.CubeTextureLoader().load(faces, tex => { scene.background = tex; }, undefined, () => {});
+    new THREE.CubeTextureLoader().load(faces,
+      tex => { if (scene.userData.skyToken === token) { scene.background = tex; if (done) done(true); } },
+      undefined,
+      () => { if (scene.userData.skyToken === token && done) done(false); });
   }
 
   const num = (v, d, lo, hi) => {
