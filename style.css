@@ -166,3 +166,13 @@ a:hover { text-decoration: underline; }
 .acard .edesc { font-size: 11px; color: #444; margin-top: 3px; white-space: pre-wrap; word-wrap: break-word; }
 .acard .wintag { font-weight: bold; color: #8a6d00; font-size: 11px; margin-top: 4px; }
 #contests .bform select { width: 100%; padding: 3px; }
+
+/* All time high scores */
+#scores { width: 640px; max-width: 96vw; margin: 30px auto 40px; font-size: 13px; }
+#scores .head.big { font-size: 20px; text-decoration: none; margin-bottom: 10px; }
+#scores h2.head { margin: 22px 0 8px; }
+#scores a { text-decoration: underline; }
+#scores .err { color: #b00020; } #scores .empty { color: #555; }
+#scores .bform label { display: block; margin-top: 8px; }
+#scores .bform input { width: 100%; box-sizing: border-box; padding: 3px; border: 1px solid #7f9db9; }
+#scores .bform button { margin-top: 8px; }

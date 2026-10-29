@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>All time high scores - DynaBlocks</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="page">
+
+  <div id="logo">
+    <a href="index.html"><img src="img/logo.png" width="282" height="34" alt="DynaBlocks Beta"></a>
+  </div>
+
+  <div id="scores">Loading...</div>
+
+  <div id="footer">
+    <div class="links">
+      <a href="info.html">DYNABLOCKS Info</a>
+      <a href="contact.html">Contact</a>
+      <a href="terms.html">Terms of Service</a>
+      <a href="copyright.html">Copyright Policy</a>
+      <a href="privacy.html">Privacy Policy</a>
+    </div>
+    <div class="copy">Copyright 2003 DYNABLOCKS, Inc. &nbsp;Patents pending</div>
+  </div>
+
+</div>
+
+<footer class="site-footer">
+  <p>Fan project by <a href="https://github.com/theobrdev" target="_blank" rel="noopener noreferrer">theobrdev on github</a></p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+  const SUPABASE_URL = 'https://szwirufpcohmizxvrzjq.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_z_FQh2IHQ_I9h-sGmRCOvw_sHmtTFcx';
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const TOP = 10;                       // quantos aparecem por jogo
+  const root = document.getElementById('scores');
+  let isAdmin = false;
+
+  function el(tag, props, ...kids) {
+    const e = document.createElement(tag);
+    if (props) for (const k in props) e[k] = props[k];
+    kids.forEach(k => e.append(k));
+    return e;
+  }
+  const txt = t => document.createTextNode(t);
+  const td = (...kids) => el('td', null, ...kids);
+  const when = iso => new Date(iso).toLocaleDateString([], { dateStyle: 'medium' });
+
+  async function load() {
+    const { data, error } = await db.from('high_scores')
+      .select('id, game, score, created_at, profiles(username)')
+      .order('score', { ascending: false }).limit(1000);
+
+    const parts = [
+      el('h1', { className: 'head big', textContent: 'All time high scores' }),
+      el('p', { textContent: 'The best scores ever recorded on DynaBlocks, game by game.' })
+    ];
+    if (error) { parts.push(el('p', { className: 'err', textContent: error.message })); }
+    else if (!data.length) { parts.push(el('p', { className: 'empty', textContent: 'No scores recorded yet.' })); }
+    else {
+      const byGame = {};
+      data.forEach(s => (byGame[s.game] = byGame[s.game] || []).push(s));
+      Object.keys(byGame).sort((a, b) => a.localeCompare(b)).forEach(game => {
+        const t = el('table', { className: 'mygb-table' });
+        t.append(el('tr', null, ...['#', 'Player', 'Score', 'Date', isAdmin ? '' : null]
+          .filter(h => h !== null).map(h => el('th', { textContent: h }))));
+        byGame[game].slice(0, TOP).forEach((s, i) => {
+          const row = el('tr', null,
+            td(txt(i + 1)), td(txt((s.profiles && s.profiles.username) || '?')),
+            td(txt(s.score.toLocaleString())), td(txt(when(s.created_at))));
+          if (isAdmin) {
+            const del = el('a', { href: '#', textContent: 'delete' });
+            del.onclick = async e => {
+              e.preventDefault();
+              if (!confirm('Delete this score?')) return;
+              const { data: gone, error: err } = await db.from('high_scores').delete().eq('id', s.id).select();
+              if (err || !gone.length) return alert(err ? err.message : 'Not allowed.');
+              load();
+            };
+            row.append(td(del));
+          }
+          t.append(row);
+        });
+        parts.push(el('h2', { className: 'head', textContent: game }), t);
+      });
+    }
+
+    // admin: registrar placar
+    if (isAdmin) {
+      const games = [...new Set((data || []).map(s => s.game))];
+      const list = el('datalist', { id: 'games' });
+      games.forEach(g => list.append(el('option', { value: g })));
+      const game = el('input', { type: 'text', maxLength: 50 }); game.setAttribute('list', 'games');
+      const user = el('input', { type: 'text', maxLength: 20 });
+      const score = el('input', { type: 'number', min: 0 });
+      const msg = el('p', { className: 'err' });
+      const btn = el('button', { textContent: 'Add score', type: 'button' });
+      btn.onclick = async () => {
+        const g = game.value.trim(), u = user.value.trim(), n = parseInt(score.value, 10);
+        if (g.length < 2 || !u || isNaN(n) || n < 0) { msg.textContent = 'Fill in game, username and a valid score.'; return; }
+        const { data: p } = await db.from('profiles').select('id')
+          .ilike('username', u.replace(/[_%]/g, c => '\\' + c)).maybeSingle();
+        if (!p) { msg.textContent = 'User not found.'; return; }
+        const { error: e } = await db.from('high_scores').insert({ game: g, player_id: p.id, score: n });
+        if (e) { msg.textContent = e.message; return; }
+        load();
+      };
+      parts.push(el('div', { className: 'bform' },
+        el('h2', { className: 'head', textContent: 'Add a score (admin)' }),
+        el('label', { textContent: 'Game:' }), game, list,
+        el('label', { textContent: 'Player username:' }), user,
+        el('label', { textContent: 'Score:' }), score, btn, msg));
+    }
+
+    parts.push(el('p', null, el('a', { href: 'index.html', textContent: '« Back to the home page' })));
+    root.innerHTML = '';
+    parts.forEach(p => root.append(p));
+  }
+
+  async function init() {
+    const { data } = await db.auth.getSession();
+    if (data.session) {
+      const { data: p } = await db.from('profiles').select('is_admin').eq('id', data.session.user.id).maybeSingle();
+      isAdmin = !!(p && p.is_admin);
+    }
+    load();
+  }
+  init();
+</script>
+</body>
+</html>

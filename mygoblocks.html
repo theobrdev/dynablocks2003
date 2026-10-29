@@ -26,7 +26,7 @@
     </div>
 
     <h2 class="head" id="high-scores">My high scores</h2>
-    <table class="mygb-table">
+    <table class="mygb-table" id="my-scores">
       <tr><th>Game</th><th>Score</th><th>Date</th></tr>
       <tr><td colspan="3" class="empty">You have no high scores yet. <a href="index.html">Play a game!</a></td></tr>
     </table>
@@ -99,6 +99,19 @@
     $('pref-user').textContent = name;
     $('pref-mail').textContent = user.email;
     $('pref-points').textContent = points;
+    const { data: sc } = await db.from('high_scores').select('game, score, created_at')
+      .eq('player_id', user.id).order('score', { ascending: false });
+    if (sc && sc.length) {
+      const t = $('my-scores');
+      t.querySelectorAll('tr:nth-child(n+2)').forEach(r => r.remove());
+      sc.forEach(s => {
+        const tr = document.createElement('tr');
+        [s.game, s.score.toLocaleString(), new Date(s.created_at).toLocaleDateString()].forEach(v => {
+          const c = document.createElement('td'); c.textContent = v; tr.append(c);
+        });
+        t.append(tr);
+      });
+    }
     $('gate').style.display = 'none';
     $('mygb').style.display = 'block';
     if (location.hash) location.href = location.hash;   // vai para a seção pedida
