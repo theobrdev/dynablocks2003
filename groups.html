@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Groups - DynaBlocks</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="page">
+
+  <div id="logo">
+    <a href="index.html"><img src="img/logo.png" width="282" height="34" alt="DynaBlocks Beta"></a>
+  </div>
+
+  <div id="boards">Loading...</div>
+
+  <div id="footer">
+    <div class="links">
+      <a href="info.html">DYNABLOCKS Info</a>
+      <a href="contact.html">Contact</a>
+      <a href="terms.html">Terms of Service</a>
+      <a href="copyright.html">Copyright Policy</a>
+      <a href="privacy.html">Privacy Policy</a>
+    </div>
+    <div class="copy">Copyright 2003 DYNABLOCKS, Inc. &nbsp;Patents pending</div>
+  </div>
+
+</div>
+
+<footer class="site-footer">
+  <p>Fan project by <a href="https://github.com/theobrdev" target="_blank" rel="noopener noreferrer">theobrdev on github</a></p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+  const SUPABASE_URL = 'https://szwirufpcohmizxvrzjq.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_z_FQh2IHQ_I9h-sGmRCOvw_sHmtTFcx';
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const root = document.getElementById('boards');
+  const params = new URLSearchParams(location.search);
+  let me = null, siteAdmin = false;
+
+  function el(tag, props, ...kids) {
+    const e = document.createElement(tag);
+    if (props) for (const k in props) e[k] = props[k];
+    kids.forEach(k => e.append(k));
+    return e;
+  }
+  const txt = t => document.createTextNode(t);
+  const link = (text, href) => el('a', { textContent: text, href });
+  const when = iso => new Date(iso).toLocaleDateString([], { dateStyle: 'medium' });
+  const nameOf = r => (r.profiles && r.profiles.username) || '?';
+  const td = (...kids) => el('td', null, ...kids);
+  function clear(...kids) { root.innerHTML = ''; kids.forEach(k => root.append(k)); }
+  function table(headers, rows) {
+    const t = el('table', { className: 'mygb-table' });
+    t.append(el('tr', null, ...headers.map(h => el('th', { textContent: h }))));
+    rows.forEach(r => t.append(r));
+    return t;
+  }
+  const emptyRow = (cols, text) => el('tr', null, el('td', { colSpan: cols, className: 'empty', textContent: text }));
+  const friendly = m => (/duplicate|unique/i.test(m) ? 'That already exists (name taken or already added).' : m);
+
+  // ---------- lista de grupos ----------
+  async function showList() {
+    const { data, error } = await db.from('groups')
+      .select('id, name, description, created_at, group_members(count)')
+      .order('created_at', { ascending: false }).limit(200);
+    const parts = [
+      el('h1', { className: 'head big', textContent: 'Groups' }),
+      el('p', { textContent: 'Communities of players. Join a group, meet people and play games made just for the group.' })
+    ];
+    if (error) { parts.push(el('p', { className: 'err', textContent: error.message })); clear(...parts); return; }
+
+    if (me) {
+      const { data: mine } = await db.from('group_members').select('role, groups(id, name)').eq('user_id', me);
+      parts.push(el('h2', { className: 'head', textContent: 'My groups' }));
+      const rows = (mine && mine.length) ? mine.filter(m => m.groups).map(m => el('tr', null,
+        td(link(m.groups.name, 'groups.html?group=' + m.groups.id)), td(txt(m.role))))
+        : [emptyRow(2, 'You are not in any group yet.')];
+      parts.push(table(['Group', 'Your role'], rows));
+    }
+
+    parts.push(el('h2', { className: 'head', textContent: 'All groups' }));
+    const rows = data.length ? data.map(g => el('tr', null,
+      td(link(g.name, 'groups.html?group=' + g.id)),
+      td(txt(g.description ? g.description.slice(0, 80) : '')),
+      td(txt(g.group_members && g.group_members[0] ? g.group_members[0].count : 0)),
+      td(txt(when(g.created_at)))))
+      : [emptyRow(4, 'No groups yet. Create the first one!')];
+    parts.push(table(['Group', 'About', 'Members', 'Created'], rows));
+
+    if (me) {
+      const name = el('input', { type: 'text', maxLength: 40 });
+      const desc = el('textarea', { rows: 3, maxLength: 500 });
+      const msg = el('p', { className: 'err' });
+      const btn = el('button', { textContent: 'Create group', type: 'button' });
+      btn.onclick = async () => {
+        if (name.value.trim().length < 3) { msg.textContent = 'Name: at least 3 characters.'; return; }
+        btn.disabled = true;
+        const { data: row, error: e } = await db.from('groups')
+          .insert({ name: name.value.trim(), description: desc.value.trim() }).select('id').single();
+        if (e) { btn.disabled = false; msg.textContent = friendly(e.message); return; }
+        location.href = 'groups.html?group=' + row.id;
+      };
+      parts.push(el('div', { className: 'bform' },
+        el('h2', { className: 'head', textContent: 'Create a group' }),
+        el('label', { textContent: 'Group name:' }), name,
+        el('label', { textContent: 'Description:' }), desc, btn, msg));
+    } else {
+      parts.push(el('p', null, link('Sign in', 'signin.html'), txt(' to create or join groups.')));
+    }
+    parts.push(el('p', null, link('« Back to the home page', 'index.html')));
+    clear(...parts);
+  }
+
+  // ---------- um grupo ----------
+  async function showGroup(id) {
+    const { data: g, error } = await db.from('groups')
+      .select('id, name, description, owner_id, created_at').eq('id', id).maybeSingle();
+    if (error || !g) return clear(el('p', { textContent: error ? error.message : 'Group not found.' }),
+                                  el('p', null, link('« All groups', 'groups.html')));
+
+    const { data: members } = await db.from('group_members')
+      .select('user_id, role, joined_at, profiles(username)').eq('group_id', id).order('joined_at');
+    const { data: games } = await db.from('group_games')
+      .select('level_id, added_at, levels(id, name, published, profiles(username))')
+      .eq('group_id', id).order('added_at', { ascending: false });
+
+    const list = members || [];
+    const mine = list.find(m => m.user_id === me);
+    const myRole = mine ? mine.role : null;
+    const isOwner = myRole === 'owner';
+    const isAdminHere = myRole === 'owner' || myRole === 'admin';
+    const canManage = isAdminHere || siteAdmin;
+    const owner = list.find(m => m.role === 'owner');
+    const gameRows = (games || []).filter(x => x.levels);
+
+    const parts = [
+      el('p', null, link('Groups', 'groups.html'), txt(' » ' + g.name)),
+      el('h1', { className: 'head big', textContent: g.name }),
+      el('p', { className: 'cdesc', textContent: g.description || 'No description yet.' }),
+      el('p', null, el('small', { textContent: 'Owner: ' + (owner ? nameOf(owner) : '?') +
+        ' \u00B7 ' + list.length + ' member' + (list.length === 1 ? '' : 's') + ' \u00B7 created ' + when(g.created_at) }))
+    ];
+
+    // entrar / sair
+    if (me && !myRole) {
+      const b = el('button', { textContent: 'Join group', type: 'button' });
+      b.onclick = async () => {
+        const { error: e } = await db.from('group_members').insert({ group_id: id, user_id: me, role: 'member' });
+        if (e) return alert(friendly(e.message));
+        showGroup(id);
+      };
+      parts.push(el('p', null, b));
+    } else if (!me) {
+      parts.push(el('p', null, link('Sign in', 'signin.html'), txt(' to join this group.')));
+    } else if (myRole !== 'owner') {
+      const b = el('button', { textContent: 'Leave group', type: 'button' });
+      b.onclick = async () => {
+        if (!confirm('Leave "' + g.name + '"?')) return;
+        const { error: e } = await db.from('group_members').delete().eq('group_id', id).eq('user_id', me);
+        if (e) return alert(e.message);
+        showGroup(id);
+      };
+      parts.push(el('p', null, b));
+    }
+
+    // ---- jogos do grupo ----
+    parts.push(el('h2', { className: 'head', textContent: 'Group games' }));
+    const grows = gameRows.length ? gameRows.map(x => {
+      const lv = x.levels;
+      const row = el('tr', null,
+        td(link(lv.name, 'play.html?level=' + lv.id), lv.published ? txt('') : el('small', { textContent: '  (members only)' })),
+        td(txt(nameOf(lv))), td(txt(when(x.added_at))));
+      if (canManage) {
+        const rm = el('a', { href: '#', textContent: 'remove' });
+        rm.onclick = async e => {
+          e.preventDefault();
+          if (!confirm('Remove this game from the group?')) return;
+          const { data: gone, error: er } = await db.from('group_games').delete()
+            .eq('group_id', id).eq('level_id', lv.id).select();
+          if (er || !gone.length) return alert(er ? er.message : 'Could not remove.');
+          showGroup(id);
+        };
+        row.append(td(rm));
+      }
+      return row;
+    }) : [emptyRow(canManage ? 4 : 3, 'No games in this group yet.')];
+    parts.push(table(['Game', 'Author', 'Added'].concat(canManage ? [''] : []), grows));
+
+    if (isAdminHere) {
+      const { data: myLevels } = await db.from('levels').select('id, name').eq('owner_id', me).order('name');
+      const already = new Set(gameRows.map(x => x.level_id));
+      const free = (myLevels || []).filter(l => !already.has(l.id));
+      if (free.length) {
+        const sel = el('select');
+        free.forEach(l => sel.append(el('option', { value: l.id, textContent: l.name })));
+        const add = el('button', { textContent: 'Add to group', type: 'button' });
+        add.onclick = async () => {
+          const { error: e } = await db.from('group_games').insert({ group_id: id, level_id: parseInt(sel.value, 10) });
+          if (e) return alert(friendly(e.message));
+          showGroup(id);
+        };
+        parts.push(el('p', null, txt('Add one of your maps (even private ones: group members can play it): '), sel, txt(' '), add));
+      } else {
+        parts.push(el('p', null, el('small', null, txt('To add a game, first '), link('build one in the Level Editor', 'editor.html'), txt(' and save it.'))));
+      }
+    }
+
+    // ---- membros ----
+    parts.push(el('h2', { className: 'head', textContent: 'Members' }));
+    const order = { owner: 0, admin: 1, member: 2 };
+    const mrows = list.slice().sort((a, b) => order[a.role] - order[b.role]).map(m => {
+      const row = el('tr', null, td(txt(nameOf(m))), td(txt(m.role)), td(txt(when(m.joined_at))));
+      const actions = el('td');
+      const canOwnerAct = (isOwner || siteAdmin) && m.role !== 'owner';
+      if (canOwnerAct) {
+        const promo = el('a', { href: '#', textContent: m.role === 'admin' ? 'remove admin' : 'make admin' });
+        promo.onclick = async e => {
+          e.preventDefault();
+          const { data: ok, error: er } = await db.from('group_members')
+            .update({ role: m.role === 'admin' ? 'member' : 'admin' })
+            .eq('group_id', id).eq('user_id', m.user_id).select();
+          if (er || !ok.length) return alert(er ? er.message : 'Only the owner can change roles.');
+          showGroup(id);
+        };
+        actions.append(promo, txt('  '));
+      }
+      if (m.role !== 'owner' && (isOwner || siteAdmin || (isAdminHere && m.role === 'member'))) {
+        const rm = el('a', { href: '#', textContent: 'remove' });
+        rm.onclick = async e => {
+          e.preventDefault();
+          if (!confirm('Remove ' + nameOf(m) + ' from the group?')) return;
+          const { data: gone, error: er } = await db.from('group_members').delete()
+            .eq('group_id', id).eq('user_id', m.user_id).select();
+          if (er || !gone.length) return alert(er ? er.message : 'Could not remove.');
+          showGroup(id);
+        };
+        actions.append(rm);
+      }
+      row.append(actions);
+      return row;
+    });
+    parts.push(table(['Player', 'Role', 'Joined', ''], mrows));
+
+    // admin: adicionar pessoa por username
+    if (isAdminHere) {
+      const user = el('input', { type: 'text', maxLength: 20 });
+      const msg = el('p', { className: 'err' });
+      const btn = el('button', { textContent: 'Add member', type: 'button' });
+      btn.onclick = async () => {
+        const u = user.value.trim();
+        if (!u) return;
+        const { data: p } = await db.from('profiles').select('id')
+          .ilike('username', u.replace(/[_%]/g, c => '\\' + c)).maybeSingle();
+        if (!p) { msg.textContent = 'User not found.'; return; }
+        const { error: e } = await db.from('group_members').insert({ group_id: id, user_id: p.id, role: 'member' });
+        if (e) { msg.textContent = /duplicate|unique/i.test(e.message) ? 'Already a member.' : e.message; return; }
+        showGroup(id);
+      };
+      parts.push(el('div', { className: 'bform' },
+        el('label', { textContent: 'Add a player by username:' }), user, btn, msg));
+    }
+
+    // dono: editar descrição / apagar grupo
+    if (isOwner) {
+      const desc = el('textarea', { rows: 3, maxLength: 500, value: g.description });
+      const save = el('button', { textContent: 'Save description', type: 'button' });
+      const msg = el('p', { className: 'err' });
+      save.onclick = async () => {
+        const { data: ok, error: e } = await db.from('groups').update({ description: desc.value.trim() }).eq('id', id).select();
+        if (e || !ok.length) { msg.textContent = e ? e.message : 'Could not save.'; return; }
+        showGroup(id);
+      };
+      parts.push(el('div', { className: 'bform' },
+        el('h2', { className: 'head', textContent: 'Group settings (owner)' }),
+        el('label', { textContent: 'Description:' }), desc, save, msg));
+    }
+    if (isOwner || siteAdmin) {
+      const del = el('button', { textContent: 'Delete group', type: 'button' });
+      del.onclick = async () => {
+        if (!confirm('Delete "' + g.name + '" and everything in it? This cannot be undone.')) return;
+        const { data: gone, error: e } = await db.from('groups').delete().eq('id', id).select();
+        if (e || !gone.length) return alert(e ? e.message : 'Could not delete.');
+        location.href = 'groups.html';
+      };
+      parts.push(el('p', null, del));
+    }
+
+    parts.push(el('p', null, link('« All groups', 'groups.html')));
+    clear(...parts);
+  }
+
+  async function init() {
+    const { data } = await db.auth.getSession();
+    if (data.session) {
+      me = data.session.user.id;
+      const { data: p } = await db.from('profiles').select('is_admin').eq('id', me).maybeSingle();
+      siteAdmin = !!(p && p.is_admin);
+    }
+    const id = parseInt(params.get('group'), 10);
+    if (id) showGroup(id); else showList();
+  }
+  init();
+</script>
+</body>
+</html>
