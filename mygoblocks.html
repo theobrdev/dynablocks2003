@@ -92,6 +92,7 @@
     }
     const user = session.user;
     let name = (user.email || 'player').split('@')[0];
+    await db.rpc('claim_daily_bonus');   // bônus diário (se ainda não pegou hoje)
     const { data: prof } = await db.from('profiles').select('username, points').eq('id', user.id).maybeSingle();
     let points = 0;
     if (prof) { name = prof.username; points = prof.points; }
@@ -145,5 +146,6 @@
 
   init();
 </script>
+<script src="daily.js?v=1"></script>
 </body>
 </html>
