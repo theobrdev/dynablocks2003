@@ -44,7 +44,23 @@
     $('gameview').style.display = 'block';
     $('hud-title').textContent = row.name;
 
-    const g = window.Game.start({ level: W.cleanLevel(row.data), container: $('gameview') });
+    // multiplayer: precisa estar logado; use ?solo=1 no endereço para jogar sozinho
+    const params = new URLSearchParams(location.search);
+    let multiplayer = null;
+    const { data: sess } = await db.auth.getSession();
+    if (sess.session && !params.has('solo')) {
+      const { data: prof } = await db.from('profiles').select('username').eq('id', sess.session.user.id).maybeSingle();
+      multiplayer = { client: db, room: 'game-' + id, userId: sess.session.user.id, name: (prof && prof.username) || 'player' };
+    }
+    const box = $('hud-top').querySelector('.hudbox');
+    const alt = document.createElement('a');
+    alt.style.cssText = 'display:block;margin-top:4px;font-size:11px;text-decoration:underline';
+    if (multiplayer) { alt.href = 'play.html?level=' + id + '&solo=1'; alt.textContent = 'Play alone'; }
+    else if (sess.session) { alt.href = 'play.html?level=' + id; alt.textContent = 'Play online with others'; }
+    else { alt.href = 'signin.html'; alt.textContent = 'Sign in to play online with others'; }
+    box.appendChild(alt);
+
+    const g = window.Game.start({ level: W.cleanLevel(row.data), container: $('gameview'), multiplayer });
     $('hud-respawn').onclick = g.respawn;
     $('hud-exit').onclick = () => { location.href = 'play.html'; };
     $('gameview').appendChild(W.makeCameraMenu({

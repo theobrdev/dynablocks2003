@@ -145,6 +145,9 @@
     const timerEl = el('div', null, 'Timer: 0.0');
     const scoreEl = el('div', null, 'Score: 0');
     hud.append(timerEl, scoreEl);
+    const onlineEl = el('div', null, '');
+    onlineEl.style.fontSize = '16px';
+    if (opts.multiplayer) hud.append(onlineEl);
     const msgEl = el('div', 'gv-msg');
     const logEl = el('div', 'gv-log');
     layer.append(hud, msgEl, logEl);
@@ -197,7 +200,6 @@
 
     const SHIRTS = [0xcc2222, 0xe8d020, 0x2e9e3e, 0x2a5bd7, 0x20c8d8, 0xcc2aa8];   // vermelho, amarelo, verde, azul, ciano, magenta
     const shirt = SHIRTS[Math.floor(Math.random() * SHIRTS.length)];
-    const pants = new THREE.Color(shirt).multiplyScalar(0.8).getHex();
     const SKIN = 0xf2c81a;
     function charBox(w, h, d, color) {
       const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color }));
@@ -212,16 +214,22 @@
       g.add(m);
       return g;
     }
-    const playerMesh = new THREE.Group();
-    const torso = charBox(0.7, 0.75, 0.4, shirt);
-    torso.position.set(0, 0.075, 0);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 24, 16), new THREE.MeshPhongMaterial({ color: SKIN, shininess: 70 }));
-    head.position.set(0, 0.725, 0);
-    const armL = limb(0.28, 0.75, 0.4, SKIN, -0.49, 0.45);
-    const armR = limb(0.28, 0.75, 0.4, SKIN, 0.49, 0.45);
-    const legL = limb(0.35, 0.7, 0.4, pants, -0.175, -0.3);
-    const legR = limb(0.35, 0.7, 0.4, pants, 0.175, -0.3);
-    playerMesh.add(torso, head, armL, armR, legL, legR);
+    function makeCharacter(shirtColor) {
+      const pants = new THREE.Color(shirtColor).multiplyScalar(0.8).getHex();
+      const group = new THREE.Group();
+      const torso = charBox(0.7, 0.75, 0.4, shirtColor);
+      torso.position.set(0, 0.075, 0);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 24, 16), new THREE.MeshPhongMaterial({ color: SKIN, shininess: 70 }));
+      head.position.set(0, 0.725, 0);
+      const armL = limb(0.28, 0.75, 0.4, SKIN, -0.49, 0.45);
+      const armR = limb(0.28, 0.75, 0.4, SKIN, 0.49, 0.45);
+      const legL = limb(0.35, 0.7, 0.4, pants, -0.175, -0.3);
+      const legR = limb(0.35, 0.7, 0.4, pants, 0.175, -0.3);
+      group.add(torso, head, armL, armR, legL, legR);
+      return { group, armL, armR, legL, legR };
+    }
+    const mine = makeCharacter(shirt);
+    const playerMesh = mine.group, armL = mine.armL, armR = mine.armR, legL = mine.legL, legR = mine.legR;
     scene.add(playerMesh);
 
     const spawnPart = named('SpawnBlock')[0] || parts[0];
@@ -376,6 +384,96 @@
       }
     }
 
+    // --- multiplayer (Supabase Realtime): cada jogador manda a própria posição; os outros aparecem como personagens com nome ---
+    const cfg = opts.multiplayer || null;
+    const MP_MAX = 8;
+    const remotes = {};
+    let mp = null;
+    function makeLabel(text) {
+      const c = document.createElement('canvas');
+      c.width = 256; c.height = 64;
+      const x = c.getContext('2d');
+      x.font = 'bold 30px Arial'; x.textAlign = 'center';
+      x.lineWidth = 6; x.strokeStyle = '#000'; x.strokeText(text, 128, 42);
+      x.fillStyle = '#fff'; x.fillText(text, 128, 42);
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthTest: false }));
+      sp.scale.set(2.4, 0.6, 1);
+      sp.position.y = 1.5;
+      return sp;
+    }
+    const cleanNick = s => String(s || '?').replace(/[^A-Za-z0-9_ -]/g, '').slice(0, 20) || '?';
+    function dropRemote(id) {
+      const r = remotes[id];
+      if (!r) return;
+      scene.remove(r.ch.group);
+      r.label.material.map.dispose();
+      r.label.material.dispose();
+      delete remotes[id];
+    }
+    function onRemote(p) {                         // tudo que chega da rede é tratado como "não confiável"
+      if (!p || typeof p.id !== 'string' || !cfg || p.id === cfg.userId) return;
+      const id = p.id.slice(0, 40);
+      let r = remotes[id];
+      if (!r) {
+        if (Object.keys(remotes).length >= MP_MAX) return;
+        const ch = makeCharacter(SHIRTS.includes(p.c) ? p.c : SHIRTS[0]);
+        const label = makeLabel(cleanNick(p.n));
+        ch.group.add(label);
+        scene.add(ch.group);
+        r = remotes[id] = { ch, label, tx: 0, ty: 0, tz: 0, tf: 0, moving: false, last: 0, init: false, walk: 0, amp: 0 };
+      }
+      r.tx = W.num(p.x, 0, -5000, 5000); r.ty = W.num(p.y, 0, -5000, 5000); r.tz = W.num(p.z, 0, -5000, 5000);
+      r.tf = W.num(p.f, 0, -10, 10); r.moving = p.m === 1; r.last = performance.now();
+      if (!r.init) { r.ch.group.position.set(r.tx, r.ty, r.tz); r.init = true; }
+    }
+    if (cfg) {
+      try {
+        const chan = cfg.client.channel(cfg.room, { config: { broadcast: { self: false }, presence: { key: cfg.userId } } });
+        mp = { chan, ready: false, count: 1, sendT: 0 };
+        onlineEl.textContent = 'Online: connecting...';
+        chan.on('broadcast', { event: 'pos' }, msg => onRemote(msg && msg.payload));
+        chan.on('presence', { event: 'sync' }, () => {
+          mp.count = Math.max(1, Object.keys(chan.presenceState()).length);
+          onlineEl.textContent = 'Online: ' + mp.count;
+        });
+        chan.on('presence', { event: 'leave' }, ev => { if (ev && ev.key) dropRemote(ev.key); });
+        chan.subscribe(status => {
+          if (status === 'SUBSCRIBED') { mp.ready = true; chan.track({ name: cfg.name }); }
+          else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') onlineEl.textContent = 'Online: offline';
+        });
+      } catch (e) {
+        hudLog('[multiplayer unavailable] ' + (e && e.message ? e.message : e));
+      }
+    }
+    function mpUpdate(now, dt) {
+      for (const id of Object.keys(remotes)) {
+        const r = remotes[id];
+        if (now - r.last > 6000) { dropRemote(id); continue; }       // sumiu há 6 segundos: remove
+        const k = Math.min(1, dt * 10), g = r.ch.group;
+        g.position.x += (r.tx - g.position.x) * k;
+        g.position.y += (r.ty - g.position.y) * k;
+        g.position.z += (r.tz - g.position.z) * k;
+        const d = Math.atan2(Math.sin(r.tf - g.rotation.y), Math.cos(r.tf - g.rotation.y));
+        g.rotation.y += d * k;
+        r.walk += dt * 10;
+        r.amp += ((r.moving ? 0.8 : 0) - r.amp) * Math.min(1, dt * 12);
+        const sw = Math.sin(r.walk) * r.amp;
+        r.ch.armL.rotation.x = sw; r.ch.armR.rotation.x = -sw;
+        r.ch.legL.rotation.x = -sw; r.ch.legR.rotation.x = sw;
+      }
+      // só envia se tiver mais alguém na sala; ~6 vezes por segundo (o plano gratuito tem limite de mensagens)
+      if (mp && mp.ready && mp.count > 1 && now - mp.sendT > 160) {
+        mp.sendT = now;
+        mp.chan.send({ type: 'broadcast', event: 'pos', payload: {
+          id: cfg.userId, n: cfg.name, c: shirt,
+          x: +P.pos.x.toFixed(2), y: +P.pos.y.toFixed(2), z: +P.pos.z.toFixed(2),
+          f: +face.toFixed(2), m: (moving && P.onGround) ? 1 : 0 } });
+      }
+    }
+    function mpStop() {
+      if (mp) { try { cfg.client.removeChannel(mp.chan); } catch (e) { /* ignora */ } }
+    }
+
     // --- laço principal ---
     let last = performance.now();
     function loop(now) {
@@ -392,6 +490,7 @@
       }
       if (!finished) { elapsed += dt; timerEl.textContent = 'Timer: ' + elapsed.toFixed(1); }
 
+      mpUpdate(now, dt);
       playerMesh.position.copy(P.pos);
       playerMesh.rotation.y = face;
       walkT += dt * 10;
@@ -424,6 +523,7 @@
         clearTimeout(msgTimer);
         cleanups.forEach(f => f());
         window.__DB = undefined;
+        mpStop();
         renderer.dispose();
         layer.remove();
       }
