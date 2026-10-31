@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Profile - DynaBlocks</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #profile { width: 640px; max-width: 96vw; margin: 30px auto 40px; font-size: 13px; line-height: 1.5; }
+  #profile .head.big { font-size: 20px; text-decoration: none; margin-bottom: 10px; }
+  #profile a { text-decoration: underline; }
+  #profile .find { margin-bottom: 18px; }
+  #profile .find input { width: 200px; padding: 2px 4px; }
+  #profile .row { margin: 6px 0; }
+  #profile .row b { display: inline-block; width: 110px; vertical-align: top; }
+  #profile .bio { white-space: pre-wrap; word-wrap: break-word; border: 1px solid #999; background: #fffef6; padding: 8px; min-height: 40px; }
+  #profile .err { color: #b00020; } #profile .ok { color: #2a7a2a; } #profile small { color: #555; }
+  #profile .prefs { border-top: 1px solid #999; margin-top: 18px; padding-top: 6px; }
+  #profile .prefs label { display: block; margin: 8px 0 2px; }
+  #profile .prefs textarea { width: 100%; box-sizing: border-box; font: 13px Arial, sans-serif; padding: 3px; border: 1px solid #7f9db9; }
+  #profile .prefs button { margin-top: 8px; }
+  .swatch-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .swatch-row button { width: 30px; height: 30px; border: 2px solid #777; border-radius: 4px; cursor: pointer; padding: 0; }
+  .swatch-row button.on { border: 3px solid #fff; outline: 2px solid #000; }
+  /* Avatar feito de blocos: cabeça e braços amarelos, torso e pernas na cor escolhida */
+  .avatar { --shirt: #9a9a9a; display: inline-block; text-align: center; }
+  .avatar .av-head { width: 34px; height: 34px; margin: 0 auto -2px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fff3a0, #f2c81a 60%, #b98f00); border: 1px solid #000; position: relative; z-index: 1; }
+  .avatar .av-mid { display: flex; justify-content: center; }
+  .avatar .av-arm { width: 14px; height: 46px; background: #f2c81a; border: 1px solid #000; box-sizing: border-box; }
+  .avatar .av-torso { width: 42px; height: 46px; background: var(--shirt); border: 1px solid #000; box-sizing: border-box; }
+  .avatar .av-legs { display: flex; justify-content: center; }
+  .avatar .av-legs div { width: 21px; height: 40px; background: var(--shirt); filter: brightness(.8); border: 1px solid #000; box-sizing: border-box; }
+</style>
+</head>
+<body>
+<div id="page">
+
+  <div id="logo">
+    <a href="index.html"><img src="img/logo.png" width="282" height="34" alt="DynaBlocks Beta"></a>
+  </div>
+
+  <div id="profile">Loading...</div>
+
+  <div id="footer">
+    <div class="links">
+      <a href="info.html">DYNABLOCKS Info</a>
+      <a href="contact.html">Contact</a>
+      <a href="terms.html">Terms of Service</a>
+      <a href="copyright.html">Copyright Policy</a>
+      <a href="privacy.html">Privacy Policy</a>
+      <a href="guidelines.html">Community Guidelines</a>
+    </div>
+    <div class="copy">Copyright 2003 DYNABLOCKS, Inc. &nbsp;Patents pending</div>
+  </div>
+
+</div>
+
+<footer class="site-footer">
+  <p>Fan project by <a href="https://github.com/theobrdev" target="_blank" rel="noopener noreferrer">theobrdev on github</a></p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+  const SUPABASE_URL = 'https://szwirufpcohmizxvrzjq.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_z_FQh2IHQ_I9h-sGmRCOvw_sHmtTFcx';
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  const root = document.getElementById('profile');
+  const params = new URLSearchParams(location.search);
+  const COLORS = { Red: '#cc2222', Yellow: '#e8d020', Green: '#2e9e3e', Blue: '#2a5bd7', Cyan: '#20c8d8', Magenta: '#cc2aa8' };
+  let me = null;
+
+  function el(tag, props, ...kids) {
+    const e = document.createElement(tag);
+    if (props) for (const k in props) e[k] = props[k];
+    kids.forEach(k => e.append(k));
+    return e;
+  }
+  const txt = t => document.createTextNode(t);
+  const row = (label, ...kids) => el('div', { className: 'row' }, el('b', { textContent: label }), ...kids);
+  const when = iso => new Date(iso).toLocaleDateString([], { dateStyle: 'medium' });
+
+  function avatar(colorName) {
+    const a = el('div', { className: 'avatar' },
+      el('div', { className: 'av-head' }),
+      el('div', { className: 'av-mid' }, el('div', { className: 'av-arm' }), el('div', { className: 'av-torso' }), el('div', { className: 'av-arm' })),
+      el('div', { className: 'av-legs' }, el('div'), el('div')));
+    if (COLORS[colorName]) a.style.setProperty('--shirt', COLORS[colorName]);
+    return a;
+  }
+
+  function searchBox() {
+    const input = el('input', { type: 'text', placeholder: 'Profile ID or username', maxLength: 20 });
+    const go = () => {
+      const v = input.value.trim();
+      if (!v) return;
+      location.href = 'profile.html?' + (/^\d+$/.test(v) ? 'id=' + v : 'name=' + encodeURIComponent(v));
+    };
+    input.onkeydown = e => { if (e.key === 'Enter') go(); };
+    const b = el('button', { type: 'button', textContent: 'Find profile' });
+    b.onclick = go;
+    return el('div', { className: 'find' }, el('b', { textContent: 'Find a profile: ' }), input, txt(' '), b);
+  }
+
+  async function load() {
+    const { data: s } = await db.auth.getSession();
+    me = s.session ? s.session.user.id : null;
+
+    const idParam = parseInt(params.get('id'), 10);
+    const nameParam = params.get('name');
+    const parts = [el('h1', { className: 'head big', textContent: 'Profile' }), searchBox()];
+
+    if (!idParam && !nameParam) {
+      if (me) {
+        const { data: mine } = await db.from('profiles').select('user_number').eq('id', me).maybeSingle();
+        if (mine) { location.replace('profile.html?id=' + mine.user_number); return; }
+      }
+      parts.push(el('p', { textContent: 'Type a profile ID (like 1) or a username to see that player\u2019s profile.' }));
+      root.innerHTML = ''; parts.forEach(p => root.append(p));
+      return;
+    }
+
+    const { data, error } = await db.rpc('get_profile', idParam
+      ? { p_number: idParam, p_username: null } : { p_number: null, p_username: nameParam });
+    if (error) { parts.push(el('p', { className: 'err', textContent: error.message })); }
+    else if (!data || !data.length) { parts.push(el('p', { textContent: 'Profile not found.' })); }
+    else { parts.push(...renderProfile(data[0])); }
+    parts.push(el('p', null, el('a', { href: 'index.html', textContent: '\u00AB Back to the home page' })));
+    root.innerHTML = '';
+    parts.forEach(p => root.append(p));
+  }
+
+  function renderProfile(p) {
+    const out = [];
+    out.push(row('Username:', txt(p.username)));
+
+    // e-mail: "Secret" para os outros, a menos que o dono ative nas preferências
+    let emailLine;
+    if (p.email) {
+      emailLine = p.show_email ? p.email + ' (visible to everyone)'
+        : p.is_mine ? 'Secret (only you can see it \u2013 you can show it in Preferences below)'
+        : p.email + ' (secret \u2013 you see it because you are an admin)';
+    } else {
+      emailLine = 'Secret';
+    }
+    out.push(row('Email:', txt(emailLine)));
+    out.push(row('ID:', txt(String(p.user_number))));
+
+    if (p.hidden) {
+      out.push(row('Profile:', txt('This profile is private.')));
+      return out;
+    }
+
+    const av = el('div', { style: 'display:inline-block' }, avatar(p.avatar_color));
+    out.push(row('Avatar:', av,
+      p.avatar_color ? txt('') : el('small', { textContent: '  (random color each game)' })));
+    out.push(row('Description:', el('div', { className: 'bio', style: 'display:inline-block;width:420px;max-width:100%', textContent: p.bio || 'No description yet.' })));
+    out.push(row('Points:', txt(String(p.points))));
+    out.push(row('Member since:', txt(p.created_at ? when(p.created_at) : '-')));
+    if (p.is_admin) out.push(row('Role:', txt('Admin')));
+    if (p.is_private) out.push(el('p', null, el('small', { textContent: 'This profile is private. You can see it because ' + (p.is_mine ? 'it is yours.' : 'you are an admin.') })));
+    if (p.is_mine) out.push(prefsForm(p));
+    return out;
+  }
+
+  // ---------- Preferences (só o dono) ----------
+  function prefsForm(p) {
+    const state = { bio: p.bio || '', color: p.avatar_color || null, showEmail: !!p.show_email, isPrivate: !!p.is_private };
+    const msg = el('p');
+    const say = (t, ok) => { msg.textContent = t; msg.className = ok ? 'ok' : 'err'; };
+
+    async function save(next) {
+      const { data, error } = await db.rpc('update_my_profile', {
+        p_bio: next.bio, p_avatar_color: next.color, p_show_email: next.showEmail, p_is_private: next.isPrivate });
+      if (error) { say(error.message, false); return false; }
+      return true;
+    }
+
+    // botão "Make Private ?"
+    const toggle = el('button', { type: 'button', textContent: state.isPrivate ? 'Make Public' : 'Make Private' });
+    toggle.onclick = async () => {
+      const next = { ...state, isPrivate: !state.isPrivate };
+      if (await save(next)) location.reload();
+    };
+
+    const bio = el('textarea', { rows: 4, maxLength: 300, value: state.bio });
+    const email = el('input', { type: 'checkbox', checked: state.showEmail });
+    const sw = el('div', { className: 'swatch-row' });
+    const paint = () => {
+      sw.innerHTML = '';
+      const rnd = el('button', { type: 'button', title: 'Random color each game', textContent: '?', className: state.color ? '' : 'on' });
+      rnd.style.background = '#ddd';
+      rnd.onclick = () => { state.color = null; paint(); };
+      sw.appendChild(rnd);
+      Object.keys(COLORS).forEach(c => {
+        const b = el('button', { type: 'button', title: c, className: state.color === c ? 'on' : '' });
+        b.style.background = COLORS[c];
+        b.onclick = () => { state.color = c; paint(); };
+        sw.appendChild(b);
+      });
+    };
+    paint();
+
+    const saveBtn = el('button', { type: 'button', textContent: 'Save preferences' });
+    saveBtn.onclick = async () => {
+      const next = { bio: bio.value.trim(), color: state.color, showEmail: email.checked, isPrivate: state.isPrivate };
+      if (await save(next)) { say('Saved!', true); setTimeout(() => location.reload(), 600); }
+    };
+
+    return el('div', { className: 'prefs' },
+      el('h2', { className: 'head', textContent: 'Preferences' }),
+      el('div', { className: 'row' }, el('b', { textContent: 'Privacy:' }),
+        txt('Your profile is ' + (state.isPrivate ? 'PRIVATE' : 'public') + '. '), toggle),
+      el('label', { textContent: 'Description (up to 300 characters):' }), bio,
+      el('label', { textContent: 'Avatar color:' }), sw,
+      el('label', null, email, txt(' Show my e-mail on my public profile')),
+      saveBtn, msg);
+  }
+
+  load();
+</script>
+</body>
+</html>
