@@ -35,6 +35,16 @@
     <div class="agrid" id="pending-grid">Loading...</div>
   </div>
 
+  <div id="accounts" style="width:960px;max-width:96vw;margin:10px auto 30px;font-size:12px">
+    <h2 class="head">Accounts</h2>
+    <p>
+      <input type="text" id="acc-search" placeholder="Search username or e-mail" style="width:240px">
+      <button type="button" id="acc-refresh">Refresh</button>
+    </p>
+    <p id="acc-msg"></p>
+    <div id="accounts-body" style="overflow-x:auto">Loading...</div>
+  </div>
+
   <div id="footer">
     <div class="copy">Copyright 2003 DYNABLOCKS, Inc. &nbsp;Patents pending</div>
   </div>
@@ -93,9 +103,103 @@
     });
   }
 
+  // ---------- Accounts: deletar, banir, desbanir, dar/tirar admin ----------
+  let allUsers = [], myId = null;
+  const accMsg = (t, ok) => { $('acc-msg').textContent = t; $('acc-msg').className = ok ? 'ok' : 'err'; };
+  const day = iso => (iso ? new Date(iso).toLocaleDateString() : '-');
+
+  async function loadUsers() {
+    const { data, error } = await db.rpc('admin_list_users');
+    if (error) { $('accounts-body').textContent = error.message; return; }
+    allUsers = data || [];
+    renderUsers();
+  }
+  async function callAdmin(fn, args) {
+    const { data, error } = await db.rpc(fn, args);
+    if (error) { alert(error.message); return false; }
+    accMsg(data, true);
+    await loadUsers();
+    return true;
+  }
+  function act(label, fn) {
+    const a = el('a', { href: '#', textContent: label });
+    a.style.marginRight = '10px';
+    a.onclick = e => { e.preventDefault(); fn(); };
+    return a;
+  }
+
+  function renderUsers() {
+    const q = $('acc-search').value.trim().toLowerCase();
+    const list = allUsers.filter(u =>
+      !q || (u.username || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q));
+    const t = el('table', { className: 'mygb-table' });
+    t.append(el('tr', null, ...['ID', 'Username', 'E-mail', 'Points', 'Role', 'Status', 'Joined', 'Last sign-in', 'Actions']
+      .map(x => el('th', { textContent: x }))));
+
+    list.forEach(u => {
+      const name = u.username || '(no profile)';
+      const actions = el('td');
+      if (u.id === myId) {
+        actions.append(document.createTextNode('(you)'));
+      } else {
+        if (u.is_admin) {
+          actions.append(act('remove admin', () => {
+            if (confirm('Remove admin status from ' + name + '?')) callAdmin('admin_set_admin', { p_user: u.id, p_admin: false });
+          }));
+        } else {
+          actions.append(act('make admin', () => {
+            if (confirm('Make ' + name + ' an ADMIN? Admins can ban and delete accounts.')) callAdmin('admin_set_admin', { p_user: u.id, p_admin: true });
+          }));
+          if (u.banned) {
+            actions.append(act('unban', () => {
+              if (confirm('Unban ' + name + '?')) callAdmin('admin_set_ban', { p_user: u.id, p_banned: false });
+            }));
+          } else {
+            actions.append(act('ban', () => {
+              const reason = prompt('Ban ' + name + '?\nReason (optional, only you will see it):', '');
+              if (reason === null) return;
+              callAdmin('admin_set_ban', { p_user: u.id, p_banned: true, p_reason: reason });
+            }));
+          }
+          actions.append(act('delete', async () => {
+            const key = u.username || u.email || '';
+            const typed = prompt('This PERMANENTLY deletes the account and all of its data.\nType "' + key + '" to confirm:');
+            if (typed === null) return;
+            if (typed.trim() !== key) { alert('That did not match. Nothing was deleted.'); return; }
+            if (await callAdmin('admin_delete_user', { p_user: u.id })) {
+              // apaga também as imagens enviadas por essa conta (pasta com o id dela)
+              const { data: files } = await db.storage.from('assets').list(u.id, { limit: 1000 });
+              if (files && files.length) await db.storage.from('assets').remove(files.map(f => u.id + '/' + f.name));
+            }
+          }));
+        }
+      }
+      const status = u.banned ? 'Banned' + (u.ban_reason ? ' (' + u.ban_reason + ')' : '') : 'Active';
+      const row = el('tr', null,
+        el('td', { textContent: u.user_number == null ? '-' : u.user_number }),
+        el('td', { textContent: name }),
+        el('td', { textContent: u.email || '' }),
+        el('td', { textContent: u.points }),
+        el('td', { textContent: u.is_admin ? 'Admin' : 'User' }),
+        el('td', { textContent: status }),
+        el('td', { textContent: day(u.created_at) }),
+        el('td', { textContent: day(u.last_sign_in_at) }),
+        actions);
+      if (u.banned) row.style.color = '#b00020';
+      t.append(row);
+    });
+    $('accounts-body').innerHTML = '';
+    $('accounts-body').append(t);
+    if (!list.length) $('accounts-body').append(el('p', { textContent: 'No accounts match.' }));
+  }
+  $('acc-search').oninput = renderUsers;
+  $('acc-refresh').onclick = loadUsers;
+
   db.auth.getSession().then(({ data }) => {
     if (!data.session) { location.href = 'signin.html'; return; }
+    myId = data.session.user.id;
     loadPending();
+    loadUsers();
   });
 
   $('a-go').onclick = async () => {
