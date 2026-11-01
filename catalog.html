@@ -125,7 +125,10 @@
     const url = urlOf(it);
     const img = el('img', { src: url, alt: it.name, loading: 'lazy' });
     img.onerror = () => {
-      const m = el('small', { textContent: 'Image not found: ' + url });
+      const abs = new URL(url, location.href).href;           // endereço completo, para você abrir e testar
+      const a = el('a', { href: abs, target: '_blank', rel: 'noopener noreferrer', textContent: abs });
+      a.style.color = '#fff';
+      const m = el('small', null, txt('Image not found. Click to test: '), a);
       m.style.cssText = 'color:#fff;word-break:break-all;padding:4px;font-size:10px';
       img.replaceWith(m);
     };
