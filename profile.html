@@ -19,6 +19,11 @@
   #profile .prefs label { display: block; margin: 8px 0 2px; }
   #profile .prefs textarea { width: 100%; box-sizing: border-box; font: 13px Arial, sans-serif; padding: 3px; border: 1px solid #7f9db9; }
   #profile .prefs button { margin-top: 8px; }
+  .ach-grid { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 10px; }
+  .ach-card { width: 128px; box-sizing: border-box; border: 1px solid #c9a227; background: #fffbe6; padding: 6px 4px; text-align: center; font-size: 12px; }
+  .ach-card .ic { font-size: 30px; line-height: 1.2; }
+  .ach-card .nm { font-weight: bold; }
+  .ach-card.locked { filter: grayscale(1); opacity: .5; background: #eee; border-color: #999; }
   .swatch-row { display: flex; gap: 6px; flex-wrap: wrap; }
   .swatch-row button { width: 30px; height: 30px; border: 2px solid #777; border-radius: 4px; cursor: pointer; padding: 0; }
   .swatch-row button.on { border: 3px solid #fff; outline: 2px solid #000; }
@@ -159,9 +164,37 @@
     out.push(row('Points:', txt(String(p.points))));
     out.push(row('Member since:', txt(p.created_at ? when(p.created_at) : '-')));
     if (p.is_admin) out.push(row('Role:', txt('Admin')));
+    const ach = el('div', { className: 'ach' });
+    out.push(ach);
+    loadAchievements(p.id, ach);
     if (p.is_private) out.push(el('p', null, el('small', { textContent: 'This profile is private. You can see it because ' + (p.is_mine ? 'it is yours.' : 'you are an admin.') })));
     if (p.is_mine) out.push(prefsForm(p));
     return out;
+  }
+
+  // ---------- Conquistas ----------
+  async function loadAchievements(userId, box) {
+    const { data, error } = await db.rpc('get_achievements', { p_user: userId });
+    box.innerHTML = '';
+    if (error) { box.append(el('small', { className: 'err', textContent: 'Achievements unavailable: ' + error.message })); return; }
+    if (!data || !data.length) return;
+    const got = data.filter(a => a.earned_at).length;
+    box.append(el('h2', { className: 'head', textContent: 'Achievements (' + got + ' / ' + data.length + ')' }));
+    const cats = {};
+    data.forEach(a => { (cats[a.category] = cats[a.category] || []).push(a); });
+    Object.keys(cats).forEach(cat => {
+      box.append(el('div', null, el('b', { textContent: cat })));
+      const grid = el('div', { className: 'ach-grid' });
+      cats[cat].forEach(a => {
+        const c = el('div', { className: 'ach-card' + (a.earned_at ? '' : ' locked'), title: a.description },
+          el('div', { className: 'ic', textContent: a.earned_at ? a.icon : '\u{1F512}' }),
+          el('div', { className: 'nm', textContent: a.name }),
+          el('small', { textContent: a.description }));
+        if (a.earned_at) c.append(el('div', null, el('small', { textContent: 'Earned ' + when(a.earned_at) })));
+        grid.append(c);
+      });
+      box.append(grid);
+    });
   }
 
   // ---------- Preferences (só o dono) ----------
@@ -220,5 +253,6 @@
 
   load();
 </script>
+<script src="daily.js?v=2"></script>
 </body>
 </html>
