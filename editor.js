@@ -621,7 +621,7 @@
   }
 
   // ---------- jogar / parar ----------
-  function play() {
+  async function play() {
     if (playing) return;
     if (!level.objects.some(o => o.type === 'Part')) { status('Add at least one block first.', true); return; }
     playing = true;
@@ -629,8 +629,10 @@
     $('t-stop').disabled = false;
     renderer.domElement.style.display = 'none';
     resize();
+    const outfit = window.Avatar ? await window.Avatar.loadOutfit(db).catch(() => null) : null;
+    if (!playing) return;                       // o usuário apertou STOP enquanto carregava
     try {
-      game = window.Game.start({ level: W.cleanLevel(JSON.parse(JSON.stringify(level))), container });
+      game = window.Game.start({ level: W.cleanLevel(JSON.parse(JSON.stringify(level))), container, outfit });
     } catch (e) {
       stop();
       status('Could not start the game: ' + (e && e.message ? e.message : e), true);

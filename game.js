@@ -214,7 +214,7 @@
       g.add(m);
       return g;
     }
-    function makeCharacter(shirtColor) {
+    function makeCharacterBasic(shirtColor) {
       const pants = new THREE.Color(shirtColor).multiplyScalar(0.8).getHex();
       const group = new THREE.Group();
       const torso = charBox(0.7, 0.75, 0.4, shirtColor);
@@ -228,7 +228,11 @@
       group.add(torso, head, armL, armR, legL, legR);
       return { group, armL, armR, legL, legR };
     }
+    function makeCharacter(shirtColor) {
+      return window.Avatar ? window.Avatar.make(shirtColor) : makeCharacterBasic(shirtColor);
+    }
     const mine = makeCharacter(shirt);
+    if (mine.setOutfit && opts.outfit) mine.setOutfit(opts.outfit);
     const playerMesh = mine.group, armL = mine.armL, armR = mine.armR, legL = mine.legL, legR = mine.legR;
     scene.add(playerMesh);
 
@@ -420,6 +424,7 @@
         const label = makeLabel(cleanNick(p.n));
         ch.group.add(label);
         scene.add(ch.group);
+        if (window.Avatar && ch.setOutfit) window.Avatar.loadOutfit(cfg.client, id).then(o => ch.setOutfit(o)).catch(() => {});
         r = remotes[id] = { ch, label, tx: 0, ty: 0, tz: 0, tf: 0, moving: false, last: 0, init: false, walk: 0, amp: 0 };
       }
       r.tx = W.num(p.x, 0, -5000, 5000); r.ty = W.num(p.y, 0, -5000, 5000); r.tz = W.num(p.z, 0, -5000, 5000);

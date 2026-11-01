@@ -68,7 +68,11 @@
       if (av && AV[av]) shirtColor = AV[av];
     }
 
-    const g = window.Game.start({ level: W.cleanLevel(row.data), container: $('gameview'), multiplayer, shirtColor });
+    // roupas equipadas no catálogo (Classic T-Shirt, Shirt e Pants)
+    let outfit = null;
+    if (sess.session && window.Avatar) outfit = await window.Avatar.loadOutfit(db).catch(() => null);
+
+    const g = window.Game.start({ level: W.cleanLevel(row.data), container: $('gameview'), multiplayer, shirtColor, outfit });
     $('hud-respawn').onclick = g.respawn;
     $('hud-exit').onclick = () => { location.href = 'play.html'; };
     $('gameview').appendChild(W.makeCameraMenu({
