@@ -18,20 +18,30 @@
     setTimeout(() => { t.remove(); shown = Math.max(0, shown - 1); }, 5000);
   }
 
+  const stored = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const store = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* ignora */ } };
+
   async function claim() {
     const { data: s } = await db.auth.getSession();
     if (!s.session) return;
-    const key = 'dyna_daily_' + s.session.user.id;
-    try { if (localStorage.getItem(key) === todayBR()) return; } catch (e) { /* sem localStorage: segue */ }
-    // conquistas primeiro (o "Still Here" precisa da data da última visita, antes de qualquer outra coisa mexer nela)
-    try {
-      const ach = await db.rpc('check_achievements');
-      if (!ach.error && ach.data) ach.data.forEach(a => toast('\u{1F3C6} Achievement unlocked: ' + a.name));
-    } catch (e) { /* se o SQL ainda não foi rodado, segue sem conquistas */ }
+    const uid = s.session.user.id, day = todayBR();
 
+    // 1) conquistas: uma conferência por dia (trava própria, não depende do bônus de pontos)
+    if (stored('dyna_ach_' + uid) !== day) {
+      const ach = await db.rpc('check_achievements');
+      if (ach.error) {
+        console.warn('check_achievements:', ach.error.message);   // ex.: o SQL das conquistas ainda não foi rodado
+      } else {
+        store('dyna_ach_' + uid, day);
+        (ach.data || []).forEach(a => toast('\u{1F3C6} Achievement unlocked: ' + a.name));
+      }
+    }
+
+    // 2) bônus diário de pontos
+    if (stored('dyna_daily_' + uid) === day) return;
     const { data, error } = await db.rpc('claim_daily_bonus');
     if (error) return;
-    try { localStorage.setItem(key, todayBR()); } catch (e) { /* ignora */ }
+    store('dyna_daily_' + uid, day);
     if (data > 0) toast('+' + data + ' points: daily login bonus! \u{1F389}');
   }
   claim();
