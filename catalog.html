@@ -167,10 +167,19 @@
   // ---------- dados ----------
   async function loadAll() {
     const { data, error } = await db.from('catalog_items')
-      .select('id, kind, name, price, image_path, creator_id, status, created_at, creator:profiles!catalog_items_creator_id_fkey(username)')
+      .select('id, kind, name, price, image_path, creator_id, status, created_at')
       .order('created_at', { ascending: true });
     if (error) { $('grid').textContent = error.message; return; }
     items = data || [];
+
+    // nome dos autores: busca à parte (sem "embed"), assim não depende de como as tabelas se ligam
+    const ids = [...new Set(items.map(i => i.creator_id).filter(Boolean))];
+    const names = {};
+    if (ids.length) {
+      const { data: profs } = await db.from('profiles').select('id, username').in('id', ids);
+      (profs || []).forEach(p => { names[p.id] = p.username; });
+    }
+    items.forEach(i => { i.creator = i.creator_id && names[i.creator_id] ? { username: names[i.creator_id] } : null; });
 
     if (me) {
       const [own, outfit, prof] = await Promise.all([
