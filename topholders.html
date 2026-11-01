@@ -59,7 +59,10 @@
     }
     data.forEach(p => {
       const li = document.createElement('li');
-      li.textContent = p.username + ' - ' + p.points + ' points - ID ' + p.user_number;
+      const a = document.createElement('a');
+      a.href = 'profile.html?id=' + p.user_number;
+      a.textContent = p.username;
+      li.append(a, document.createTextNode(' - ' + p.points + ' points - ID ' + p.user_number));
       list.appendChild(li);
     });
   }

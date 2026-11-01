@@ -60,7 +60,15 @@
     else { alt.href = 'signin.html'; alt.textContent = 'Sign in to play online with others'; }
     box.appendChild(alt);
 
-    const g = window.Game.start({ level: W.cleanLevel(row.data), container: $('gameview'), multiplayer });
+    // cor da roupa escolhida no perfil (se não escolheu, o jogo sorteia)
+    const AV = { Red: 0xcc2222, Yellow: 0xe8d020, Green: 0x2e9e3e, Blue: 0x2a5bd7, Cyan: 0x20c8d8, Magenta: 0xcc2aa8 };
+    let shirtColor = null;
+    if (sess.session) {
+      const { data: av } = await db.rpc('my_avatar_color');
+      if (av && AV[av]) shirtColor = AV[av];
+    }
+
+    const g = window.Game.start({ level: W.cleanLevel(row.data), container: $('gameview'), multiplayer, shirtColor });
     $('hud-respawn').onclick = g.respawn;
     $('hud-exit').onclick = () => { location.href = 'play.html'; };
     $('gameview').appendChild(W.makeCameraMenu({

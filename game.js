@@ -199,7 +199,7 @@
     let face = 0, moving = false, walkT = 0, swingAmp = 0;
 
     const SHIRTS = [0xcc2222, 0xe8d020, 0x2e9e3e, 0x2a5bd7, 0x20c8d8, 0xcc2aa8];   // vermelho, amarelo, verde, azul, ciano, magenta
-    const shirt = SHIRTS[Math.floor(Math.random() * SHIRTS.length)];
+    const shirt = SHIRTS.includes(opts.shirtColor) ? opts.shirtColor : SHIRTS[Math.floor(Math.random() * SHIRTS.length)];
     const SKIN = 0xf2c81a;
     function charBox(w, h, d, color) {
       const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color }));
