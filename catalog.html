@@ -119,7 +119,7 @@
   const txt = t => document.createTextNode(t);
   const say = (t, ok) => { $('msg').textContent = t; $('msg').className = ok ? 'ok' : 'err'; };
   const urlOf = it => window.Avatar.urlFor(db, it.image_path);
-  const nameOf = it => (it.profiles && it.profiles.username) || 'DynaBlocks';
+  const nameOf = it => (it.creator && it.creator.username) || 'DynaBlocks';
 
   // ---------- boneco de pré-visualização (3D) ----------
   let pvChar = null;
@@ -167,7 +167,7 @@
   // ---------- dados ----------
   async function loadAll() {
     const { data, error } = await db.from('catalog_items')
-      .select('id, kind, name, price, image_path, creator_id, status, created_at, profiles(username)')
+      .select('id, kind, name, price, image_path, creator_id, status, created_at, creator:profiles!catalog_items_creator_id_fkey(username)')
       .order('created_at', { ascending: true });
     if (error) { $('grid').textContent = error.message; return; }
     items = data || [];
