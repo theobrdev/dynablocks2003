@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Catalog - DynaBlocks</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  #catalog { width: 900px; max-width: 96vw; margin: 26px auto 40px; font-size: 13px; }
+  #catalog .head.big { font-size: 20px; text-decoration: none; margin-bottom: 6px; }
+  #catalog a { text-decoration: underline; }
+  #catalog .err { color: #b00020; } #catalog .ok { color: #2a7a2a; } #catalog small { color: #555; }
+  #cat-layout { display: flex; gap: 18px; align-items: flex-start; }
+  #cat-side { width: 230px; flex: none; text-align: center; border: 1px solid #999; background: #f4f4f4; padding: 8px; }
+  #pv { width: 214px; height: 300px; margin: 0 auto; background: linear-gradient(#bcd8f5, #e9f2fb); }
+  #pv canvas { display: block; }
+  #cat-main { flex: 1; min-width: 0; }
+  .tabs a { display: inline-block; padding: 3px 10px; margin-right: 4px; border: 1px solid #999; border-bottom: 0; background: #e8e8e8;
+    text-decoration: none !important; color: #000; cursor: pointer; }
+  .tabs a.on { background: #fff; font-weight: bold; }
+  #grid { display: flex; flex-wrap: wrap; gap: 12px; border: 1px solid #999; padding: 10px; min-height: 120px; }
+  .card { width: 150px; border: 1px solid #aaa; padding: 6px; text-align: center; background: #fff; font-size: 12px; }
+  .card .cimg { height: 120px; display: flex; align-items: center; justify-content: center; background: #8a8a8a; margin-bottom: 4px; }
+  .card .cimg img { max-width: 100%; max-height: 100%; }
+  .card .nm { font-weight: bold; word-wrap: break-word; }
+  .card .price { color: #2a7a2a; font-weight: bold; margin: 2px 0 4px; }
+  .card button { font-size: 11px; margin: 1px; cursor: pointer; }
+  .card .tag { display: inline-block; font-size: 10px; background: #316ac5; color: #fff; padding: 0 5px; border-radius: 3px; }
+  .box { border: 1px solid #999; padding: 8px 10px; margin-top: 16px; }
+  .box label { display: block; margin-top: 8px; }
+  .box input[type=text], .box input[type=number], .box select { padding: 2px 4px; }
+  .box input[type=text] { width: 260px; }
+  .box button { margin-top: 8px; }
+</style>
+</head>
+<body>
+<div id="page">
+
+  <div id="logo">
+    <a href="index.html"><img src="img/logo.png" width="282" height="34" alt="DynaBlocks Beta"></a>
+  </div>
+
+  <div id="catalog">
+    <h1 class="head big">Catalog</h1>
+    <p>Dress your character! Buy clothes with your Points and wear them in every game.
+       <span id="mypoints"></span></p>
+
+    <div id="cat-layout">
+      <div id="cat-side">
+        <div id="pv"></div>
+        <p style="margin:6px 0 2px"><b>Preview</b></p>
+        <p id="pv-info" style="margin:0 0 6px"><small>Wearing nothing special yet.</small></p>
+        <button type="button" id="pv-reset">Back to my outfit</button>
+      </div>
+
+      <div id="cat-main">
+        <div class="tabs" id="tabs"></div>
+        <div id="grid">Loading...</div>
+        <p id="msg"></p>
+
+        <div id="admin-pending" class="box" style="display:none"></div>
+        <div id="my-pending" class="box" style="display:none"></div>
+        <div id="submit-box" class="box" style="display:none"></div>
+      </div>
+    </div>
+
+    <p style="margin-top:22px"><a href="index.html">&laquo; Back to the home page</a></p>
+  </div>
+
+  <div id="footer">
+    <div class="links">
+      <a href="info.html">DYNABLOCKS Info</a>
+      <a href="contact.html">Contact</a>
+      <a href="terms.html">Terms of Service</a>
+      <a href="copyright.html">Copyright Policy</a>
+      <a href="privacy.html">Privacy Policy</a>
+      <a href="guidelines.html">Community Guidelines</a>
+    </div>
+    <div class="copy">Copyright 2003 DYNABLOCKS, Inc. &nbsp;Patents pending</div>
+  </div>
+
+</div>
+
+<footer class="site-footer">
+  <p>Fan project by <a href="https://github.com/theobrdev" target="_blank" rel="noopener noreferrer">theobrdev on github</a></p>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+  const SUPABASE_URL = 'https://szwirufpcohmizxvrzjq.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_z_FQh2IHQ_I9h-sGmRCOvw_sHmtTFcx';
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+</script>
+<script src="avatar.js?v=20261029h"></script>
+<script>
+(function () {
+  'use strict';
+  const $ = id => document.getElementById(id);
+  const KINDS = { tshirt: 'Classic T-Shirt', shirt: 'Classic Shirt', pants: 'Classic Pants' };
+  const SHIRT_COLORS = { Red: 0xcc2222, Yellow: 0xe8d020, Green: 0x2e9e3e, Blue: 0x2a5bd7, Cyan: 0x20c8d8, Magenta: 0xcc2aa8 };
+  const MAX_BYTES = 1048576;
+  const MIME = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
+
+  let me = null, isAdmin = false, points = 0;
+  let items = [];                       // todos os itens que eu posso ver
+  let owned = new Set();                // ids que eu tenho
+  let equipped = {};                    // { tshirt: id, shirt: id, pants: id }
+  let tab = 'all';
+  let tryOn = {};                       // o que está sendo "experimentado" no boneco: { tshirt, shirt, pants } -> item
+  let shirtColor = SHIRT_COLORS.Blue;
+
+  function el(tag, props, ...kids) {
+    const e = document.createElement(tag);
+    if (props) for (const k in props) e[k] = props[k];
+    kids.forEach(k => e.append(k));
+    return e;
+  }
+  const txt = t => document.createTextNode(t);
+  const say = (t, ok) => { $('msg').textContent = t; $('msg').className = ok ? 'ok' : 'err'; };
+  const urlOf = it => window.Avatar.urlFor(db, it.image_path);
+  const nameOf = it => (it.profiles && it.profiles.username) || 'DynaBlocks';
+
+  // ---------- boneco de pré-visualização (3D) ----------
+  let pvChar = null;
+  function setupPreview() {
+    const box = $('pv');
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(214, 300);
+    renderer.setPixelRatio(window.devicePixelRatio || 1);
+    box.appendChild(renderer.domElement);
+    const scene = new THREE.Scene();
+    const cam = new THREE.PerspectiveCamera(36, 214 / 300, 0.1, 50);
+    cam.position.set(0, 0.2, 5.6);
+    cam.lookAt(0, 0, 0);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x667788, 1));
+    const sun = new THREE.DirectionalLight(0xffffff, 0.5);
+    sun.position.set(2, 4, 5);
+    scene.add(sun);
+    pvChar = window.Avatar.make(shirtColor);
+    scene.add(pvChar.group);
+    let a = 0.4;
+    (function loop() {
+      requestAnimationFrame(loop);
+      a += 0.012;
+      pvChar.group.rotation.y = a;
+      renderer.render(scene, cam);
+    })();
+  }
+  function applyPreview() {
+    const o = {};
+    Object.keys(KINDS).forEach(k => { o[k] = tryOn[k] ? urlOf(tryOn[k]) : null; });
+    pvChar.setOutfit(o);
+    const names = Object.keys(KINDS).filter(k => tryOn[k]).map(k => tryOn[k].name);
+    $('pv-info').innerHTML = '';
+    $('pv-info').append(el('small', { textContent: names.length ? 'Wearing: ' + names.join(', ') : 'Nothing special yet.' }));
+  }
+  function resetTryOn() {
+    tryOn = {};
+    Object.keys(KINDS).forEach(k => {
+      const it = items.find(x => x.id === equipped[k]);
+      if (it) tryOn[k] = it;
+    });
+    applyPreview();
+  }
+
+  // ---------- dados ----------
+  async function loadAll() {
+    const { data, error } = await db.from('catalog_items')
+      .select('id, kind, name, price, image_path, creator_id, status, created_at, profiles(username)')
+      .order('created_at', { ascending: true });
+    if (error) { $('grid').textContent = error.message; return; }
+    items = data || [];
+
+    if (me) {
+      const [own, outfit, prof] = await Promise.all([
+        db.from('user_items').select('item_id').eq('user_id', me),
+        db.rpc('get_outfit', {}),
+        db.from('profiles').select('points').eq('id', me).maybeSingle()
+      ]);
+      owned = new Set((own.data || []).map(r => r.item_id));
+      equipped = {};
+      (outfit.data || []).forEach(r => { equipped[r.kind] = r.id; });
+      points = prof.data ? prof.data.points : 0;
+      $('mypoints').textContent = 'You have ' + points + ' points.';
+    } else {
+      $('mypoints').innerHTML = '';
+      $('mypoints').append(el('a', { href: 'signin.html', textContent: 'Sign in' }), txt(' to buy items.'));
+    }
+    renderTabs();
+    renderGrid();
+    renderPending();
+    resetTryOn();
+  }
+
+  // ---------- abas e grade ----------
+  function renderTabs() {
+    const t = $('tabs');
+    t.innerHTML = '';
+    const defs = [['all', 'All'], ['tshirt', 'T-Shirts'], ['shirt', 'Shirts'], ['pants', 'Pants']];
+    if (me) defs.push(['mine', 'My Items']);
+    defs.forEach(([k, label]) => {
+      const a = el('a', { textContent: label, className: tab === k ? 'on' : '' });
+      a.onclick = () => { tab = k; renderTabs(); renderGrid(); };
+      t.appendChild(a);
+    });
+  }
+
+  function card(it) {
+    const isOwned = owned.has(it.id);
+    const worn = equipped[it.kind] === it.id;
+    const c = el('div', { className: 'card' },
+      el('div', { className: 'cimg' }, el('img', { src: urlOf(it), alt: it.name, loading: 'lazy' })),
+      el('div', { className: 'nm', textContent: it.name }),
+      el('div', null, el('small', { textContent: KINDS[it.kind] + ' \u00B7 by ' + nameOf(it) })),
+      el('div', { className: 'price', textContent: it.price > 0 ? it.price + ' points' : 'Free' }));
+    if (worn) c.append(el('div', null, el('span', { className: 'tag', textContent: 'Wearing' })));
+
+    const row = el('div');
+    const tryBtn = el('button', { type: 'button', textContent: 'Try on' });
+    tryBtn.onclick = () => { tryOn[it.kind] = tryOn[it.kind] && tryOn[it.kind].id === it.id ? null : it; applyPreview(); };
+    row.append(tryBtn);
+
+    if (!me) {
+      row.append(el('a', { href: 'signin.html', textContent: ' sign in' }));
+    } else if (isOwned) {
+      const eq = el('button', { type: 'button', textContent: worn ? 'Take off' : 'Wear' });
+      eq.onclick = async () => {
+        const { error } = await db.rpc('equip_item', { p_item: it.id, p_equip: !worn });
+        if (error) return say(error.message, false);
+        say(worn ? 'Removed.' : 'You are now wearing ' + it.name + '.', true);
+        loadAll();
+      };
+      row.append(eq);
+    } else {
+      const buy = el('button', { type: 'button', textContent: 'Buy' });
+      buy.onclick = async () => {
+        if (!confirm('Buy "' + it.name + '" for ' + it.price + ' points?')) return;
+        const { data, error } = await db.rpc('buy_item', { p_item: it.id });
+        if (error) return say(error.message, false);
+        say(data + ' Press "Wear" to put it on.', true);
+        loadAll();
+      };
+      row.append(buy);
+    }
+    c.append(row);
+
+    if (isAdmin) {
+      const adm = el('div', { style: 'margin-top:4px' });
+      const price = el('a', { href: '#', textContent: 'price' });
+      price.onclick = async e => {
+        e.preventDefault();
+        const v = prompt('New price in points for "' + it.name + '":', it.price);
+        if (v === null) return;
+        const n = parseInt(v, 10);
+        if (isNaN(n) || n < 0) return alert('Enter a valid number.');
+        const { data, error } = await db.from('catalog_items').update({ price: n }).eq('id', it.id).select();
+        if (error || !data.length) return alert(error ? error.message : 'Not allowed.');
+        loadAll();
+      };
+      const del = el('a', { href: '#', textContent: 'delete' });
+      del.onclick = e => { e.preventDefault(); removeItem(it); };
+      adm.append(price, txt(' \u00B7 '), del);
+      c.append(adm);
+    }
+    return c;
+  }
+
+  async function removeItem(it) {
+    if (!confirm('Delete "' + it.name + '"? Everyone who owns it loses it.')) return;
+    const { data, error } = await db.from('catalog_items').delete().eq('id', it.id).select();
+    if (error || !data.length) return alert(error ? error.message : 'Not allowed.');
+    if (!/^img\//.test(it.image_path)) await db.storage.from('assets').remove([it.image_path]);
+    loadAll();
+  }
+
+  function renderGrid() {
+    const g = $('grid');
+    g.innerHTML = '';
+    let list = items.filter(i => i.status === 'approved');
+    if (tab === 'mine') list = list.filter(i => owned.has(i.id));
+    else if (tab !== 'all') list = list.filter(i => i.kind === tab);
+    if (!list.length) { g.textContent = tab === 'mine' ? 'You do not own any items yet.' : 'Nothing here yet.'; return; }
+    list.forEach(i => g.appendChild(card(i)));
+  }
+
+  // ---------- envios pendentes ----------
+  function renderPending() {
+    const adm = $('admin-pending'), mine = $('my-pending');
+    const pending = items.filter(i => i.status === 'pending');
+
+    adm.style.display = isAdmin ? 'block' : 'none';
+    if (isAdmin) {
+      adm.innerHTML = '';
+      adm.append(el('h2', { className: 'head', textContent: 'Waiting for approval (admin)' }));
+      if (!pending.length) adm.append(txt('Nothing waiting.'));
+      const wrap = el('div', { style: 'display:flex;flex-wrap:wrap;gap:12px' });
+      pending.forEach(it => {
+        const price = el('input', { type: 'number', min: 0, value: 100, style: 'width:70px' });
+        const ok = el('button', { type: 'button', textContent: 'Approve' });
+        ok.onclick = async () => {
+          const { error } = await db.rpc('admin_approve_item', { p_item: it.id, p_price: parseInt(price.value, 10) || 0 });
+          if (error) return alert(error.message);
+          loadAll();
+        };
+        const no = el('button', { type: 'button', textContent: 'Reject' });
+        no.onclick = () => removeItem(it);
+        wrap.append(el('div', { className: 'card' },
+          el('div', { className: 'cimg' }, el('img', { src: urlOf(it), alt: it.name })),
+          el('div', { className: 'nm', textContent: it.name }),
+          el('small', { textContent: KINDS[it.kind] + ' \u00B7 by ' + nameOf(it) }),
+          el('div', null, txt('Price: '), price), el('div', null, ok, no)));
+      });
+      adm.append(wrap);
+    }
+
+    const mineList = pending.filter(i => i.creator_id === me);
+    mine.style.display = (!isAdmin && me && mineList.length) ? 'block' : 'none';
+    if (mine.style.display === 'block') {
+      mine.innerHTML = '';
+      mine.append(el('h2', { className: 'head', textContent: 'My designs waiting for approval' }));
+      mineList.forEach(it => {
+        const del = el('a', { href: '#', textContent: 'cancel' });
+        del.onclick = e => { e.preventDefault(); removeItem(it); };
+        mine.append(el('div', null, txt('\u23F3 ' + it.name + ' (' + KINDS[it.kind] + ') \u2013 '), del));
+      });
+    }
+  }
+
+  // ---------- enviar / criar item ----------
+  function checkImage(file, kind) {            // confere o tamanho da imagem antes de enviar
+    return new Promise(resolve => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        if (kind === 'tshirt') {
+          resolve(img.width >= 32 && img.height >= 32 && img.width <= 1024 && img.height <= 1024
+            ? null : 'A T-Shirt picture must be between 32 and 1024 pixels wide and tall.');
+        } else {
+          resolve(img.width === 585 && img.height === 559
+            ? null : 'Shirts and Pants must use the 585 x 559 template (yours is ' + img.width + ' x ' + img.height + ').');
+        }
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve('That file is not a valid image.'); };
+      img.src = url;
+    });
+  }
+
+  function buildSubmit() {
+    const box = $('submit-box');
+    if (!me) { box.style.display = 'none'; return; }
+    box.style.display = 'block';
+    box.innerHTML = '';
+    const kind = el('select');
+    Object.keys(KINDS).forEach(k => kind.append(el('option', { value: k, textContent: KINDS[k] })));
+    const name = el('input', { type: 'text', maxLength: 50 });
+    const file = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,image/gif' });
+    const price = el('input', { type: 'number', min: 0, value: 100, style: 'width:80px' });
+    const out = el('p');
+    const btn = el('button', { type: 'button', textContent: isAdmin ? 'Add to catalog' : 'Send for approval' });
+    const note = (t, ok) => { out.textContent = t; out.className = ok ? 'ok' : 'err'; };
+
+    btn.onclick = async () => {
+      const f = file.files[0], title = name.value.trim();
+      if (!f) return note('Choose an image first.', false);
+      if (!MIME[f.type]) return note('Only PNG, JPG, WEBP or GIF images (PNG is best: it keeps transparency).', false);
+      if (f.size > MAX_BYTES) return note('The image must be 1 MB or smaller.', false);
+      if (title.length < 3) return note('Give it a name (at least 3 characters).', false);
+      const bad = await checkImage(f, kind.value);
+      if (bad) return note(bad, false);
+
+      btn.disabled = true; note('Uploading...', true);
+      const path = me + '/catalog-' + crypto.randomUUID() + '.' + MIME[f.type];
+      const up = await db.storage.from('assets').upload(path, f, { contentType: f.type });
+      if (up.error) { btn.disabled = false; return note(up.error.message, false); }
+
+      const row = { kind: kind.value, name: title, image_path: path };
+      if (isAdmin) { row.status = 'approved'; row.price = Math.max(0, parseInt(price.value, 10) || 0); }
+      const ins = await db.from('catalog_items').insert(row);
+      btn.disabled = false;
+      if (ins.error) { await db.storage.from('assets').remove([path]); return note(ins.error.message, false); }
+      file.value = ''; name.value = '';
+      note(isAdmin ? 'Added to the catalog!' : 'Sent! An admin will review it.', true);
+      loadAll();
+    };
+
+    box.append(
+      el('h2', { className: 'head', textContent: isAdmin ? 'Add an item (admin)' : 'Submit a design' }),
+      el('div', null, el('small', { textContent: isAdmin
+        ? 'Items you add go straight into the catalog.'
+        : 'Your design is reviewed by an admin, who sets the price. You can have up to 5 waiting.' })),
+      el('label', { textContent: 'Type:' }), kind,
+      el('label', { textContent: 'Name:' }), name,
+      el('label', { textContent: 'Image (Shirts and Pants: 585 x 559 template, PNG with transparency; T-Shirt: a picture up to 1024 px):' }), file);
+    if (isAdmin) box.append(el('label', { textContent: 'Price (points):' }), price);
+    box.append(btn, out);
+  }
+
+  // ---------- início ----------
+  async function init() {
+    const { data: s } = await db.auth.getSession();
+    if (s.session) {
+      me = s.session.user.id;
+      const { data: p } = await db.from('profiles').select('is_admin').eq('id', me).maybeSingle();
+      isAdmin = !!(p && p.is_admin);
+      const { data: av } = await db.rpc('my_avatar_color');
+      if (av && SHIRT_COLORS[av]) shirtColor = SHIRT_COLORS[av];
+    }
+    setupPreview();
+    $('pv-reset').onclick = resetTryOn;
+    buildSubmit();
+    await loadAll();
+  }
+  init();
+})();
+</script>
+<script src="daily.js?v=1"></script>
+</body>
+</html>
