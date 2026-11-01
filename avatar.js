@@ -108,7 +108,11 @@
       o = o || {};
       const me = ++token;
       const [pants, shirt, tshirt] = await Promise.all([loadImg(o.pants), loadImg(o.shirt), loadImg(o.tshirt)]);
-      if (me !== token) return;               // chegou uma troca mais nova: ignora esta
+      if (me !== token) return [];            // chegou uma troca mais nova: ignora esta
+      const failed = [];                       // endereços pedidos que não carregaram
+      if (o.pants && !pants) failed.push(o.pants);
+      if (o.shirt && !shirt) failed.push(o.shirt);
+      if (o.tshirt && !tshirt) failed.push(o.tshirt);
       paint('torso', [
         g => { if (pants) g.drawImage(pants, 0, 0, TW, TH); },
         g => { if (shirt) g.drawImage(shirt, 0, 0, TW, TH); },
@@ -122,6 +126,7 @@
       ]);
       paint('arms', [g => { if (shirt) g.drawImage(shirt, 0, 0, TW, TH); }]);
       paint('legs', [g => { if (pants) g.drawImage(pants, 0, 0, TW, TH); }]);
+      return failed;
     }
 
     return { group, armL, armR, legL, legR, setOutfit };

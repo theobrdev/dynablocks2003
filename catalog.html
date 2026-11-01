@@ -92,7 +92,7 @@
   const SUPABASE_KEY = 'sb_publishable_z_FQh2IHQ_I9h-sGmRCOvw_sHmtTFcx';
   const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 </script>
-<script src="avatar.js?v=20261029h"></script>
+<script src="avatar.js?v=20261029i"></script>
 <script>
 (function () {
   'use strict';
@@ -120,11 +120,29 @@
   const say = (t, ok) => { $('msg').textContent = t; $('msg').className = ok ? 'ok' : 'err'; };
   const urlOf = it => window.Avatar.urlFor(db, it.image_path);
   const nameOf = it => (it.creator && it.creator.username) || 'DynaBlocks';
+  // miniatura da imagem; se não carregar, mostra o endereço que o navegador tentou abrir
+  function thumb(it) {
+    const url = urlOf(it);
+    const img = el('img', { src: url, alt: it.name, loading: 'lazy' });
+    img.onerror = () => {
+      const m = el('small', { textContent: 'Image not found: ' + url });
+      m.style.cssText = 'color:#fff;word-break:break-all;padding:4px;font-size:10px';
+      img.replaceWith(m);
+    };
+    return el('div', { className: 'cimg' }, img);
+  }
 
   // ---------- boneco de pré-visualização (3D) ----------
   let pvChar = null;
   function setupPreview() {
     const box = $('pv');
+    try {
+      buildPreview(box);
+    } catch (e) {
+      box.textContent = '3D preview unavailable: ' + (e && e.message ? e.message : e);
+    }
+  }
+  function buildPreview(box) {
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(214, 300);
     renderer.setPixelRatio(window.devicePixelRatio || 1);
@@ -150,10 +168,18 @@
   function applyPreview() {
     const o = {};
     Object.keys(KINDS).forEach(k => { o[k] = tryOn[k] ? urlOf(tryOn[k]) : null; });
-    pvChar.setOutfit(o);
+    if (!pvChar) return;
     const names = Object.keys(KINDS).filter(k => tryOn[k]).map(k => tryOn[k].name);
-    $('pv-info').innerHTML = '';
-    $('pv-info').append(el('small', { textContent: names.length ? 'Wearing: ' + names.join(', ') : 'Nothing special yet.' }));
+    const info = $('pv-info');
+    info.innerHTML = '';
+    info.append(el('small', { textContent: names.length ? 'Wearing: ' + names.join(', ') : 'Nothing special yet.' }));
+    pvChar.setOutfit(o).then(failed => {
+      if (failed && failed.length) {
+        const w = el('div', { className: 'err' }, el('small', { textContent: 'Could not load: ' + failed.join(', ') }));
+        w.style.wordBreak = 'break-all';
+        info.append(w);
+      }
+    });
   }
   function resetTryOn() {
     tryOn = {};
@@ -219,7 +245,7 @@
     const isOwned = owned.has(it.id);
     const worn = equipped[it.kind] === it.id;
     const c = el('div', { className: 'card' },
-      el('div', { className: 'cimg' }, el('img', { src: urlOf(it), alt: it.name, loading: 'lazy' })),
+      thumb(it),
       el('div', { className: 'nm', textContent: it.name }),
       el('div', null, el('small', { textContent: KINDS[it.kind] + ' \u00B7 by ' + nameOf(it) })),
       el('div', { className: 'price', textContent: it.price > 0 ? it.price + ' points' : 'Free' }));
@@ -315,7 +341,7 @@
         const no = el('button', { type: 'button', textContent: 'Reject' });
         no.onclick = () => removeItem(it);
         wrap.append(el('div', { className: 'card' },
-          el('div', { className: 'cimg' }, el('img', { src: urlOf(it), alt: it.name })),
+          thumb(it),
           el('div', { className: 'nm', textContent: it.name }),
           el('small', { textContent: KINDS[it.kind] + ' \u00B7 by ' + nameOf(it) }),
           el('div', null, txt('Price: '), price), el('div', null, ok, no)));
