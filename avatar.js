@@ -55,7 +55,8 @@
   // ================== Chapéus (modelos 3D em .obj + textura 2D) ==================
   // O leitor de .obj é nosso (só lê números): um arquivo enviado por um jogador nunca roda código.
   const OBJ_LIMITS = { vertices: 40000, triangles: 40000 };
-  const HAT_FIT_WIDTH = 0.74;     // largura final dos chapéus (cabeça = 0,56)
+  const HAT_FIT_WIDTH = 0.74;     // chapéu "por cima": largura final, contando a aba (a cabeça tem 0,56)
+  const HAT_COVER_WIDTH = 0.70;   // chapéu "cobre a cabeça" (ex.: cabeça de abóbora): largura final
 
   // texto .obj -> { pos, uv, nor } (triângulos soltos). Aceita faces com 3 ou mais pontos e índices negativos.
   function parseOBJ(text) {
@@ -138,26 +139,30 @@
   }
 
   // monta o chapéu: base apoiada em y = 0, centrado, na escala do nosso personagem, virado para a frente dele
-  function hatObject(geo, tex) {
+  // mode "top"  = o chapéu fica POR CIMA da cabeça (a base apoiada no meio da cabeça): boné, capacete, cartola...
+  // mode "cover" = o chapéu COBRE a cabeça (centrado nela): cabeça de abóbora, máscaras...
+  // Nos dois casos ele é redimensionado para o tamanho da cabeça.
+  function hatObject(geo, tex, mode) {
+    const cover = mode === 'cover';
     const b = geo.boundingBox;
     const dx = b.max.x - b.min.x, dz = b.max.z - b.min.z;
-    // todo chapéu é ajustado ao tamanho da cabeça (que tem 0,56 de diâmetro): a maior largura do chapéu,
-    // contando a aba, vira 0,74 (um pouco maior que a cabeça, para ela caber por dentro)
     const widest = Math.max(dx, dz);
-    const k = widest > 1e-6 ? HAT_FIT_WIDTH / widest : 1;
+    const k = widest > 1e-6 ? (cover ? HAT_COVER_WIDTH : HAT_FIT_WIDTH) / widest : 1;
     const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({
       map: tex || null, color: tex ? 0xffffff : 0x9a9a9a, side: THREE.DoubleSide }));
-    mesh.position.set(-(b.min.x + b.max.x) / 2, -b.min.y, -(b.min.z + b.max.z) / 2);
+    // centraliza em x/z; na vertical, "cover" centraliza o modelo e "top" apoia a base em y = 0
+    mesh.position.set(-(b.min.x + b.max.x) / 2, cover ? -(b.min.y + b.max.y) / 2 : -b.min.y, -(b.min.z + b.max.z) / 2);
     const holder = new THREE.Group();
     holder.add(mesh);
     holder.scale.setScalar(k);
     holder.rotation.y = Math.PI;                 // a frente do Roblox é -Z; a do nosso personagem é +Z
+    holder.position.y = cover ? 0 : 0.03;        // relativo ao centro da cabeça
     return holder;
   }
 
   // imagem (data URL) do chapéu para as miniaturas do catálogo
   let thumbRenderer = null;
-  async function thumbHat(model, texture) {
+  async function thumbHat(model, texture, mode) {
     const [geo, tex] = await Promise.all([loadGeo(model), loadTex(texture)]);
     if (!thumbRenderer) {
       thumbRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
@@ -169,11 +174,12 @@
     const sun = new THREE.DirectionalLight(0xffffff, 0.5);
     sun.position.set(2, 4, 3);
     scene.add(sun);
-    const hat = hatObject(geo, tex);
+    const hat = hatObject(geo, tex, mode);
     scene.add(hat);
+    const ty = mode === 'cover' ? 0 : 0.2;       // altura que a câmera olha
     const cam = new THREE.PerspectiveCamera(32, 1, 0.05, 20);
-    cam.position.set(1.0, 0.75, 1.6);
-    cam.lookAt(0, 0.18, 0);
+    cam.position.set(1.0, ty + 0.55, 1.6);
+    cam.lookAt(0, ty, 0);
     thumbRenderer.render(scene, cam);
     return thumbRenderer.domElement.toDataURL('image/png');
   }
@@ -229,7 +235,7 @@
     const legR = limb(0.35, 0.7, 0.4, 'legs', 0.175, -0.3);
     group.add(torso, head, armL, armR, legL, legR);
     const hatMount = new THREE.Group();          // o chapéu fica preso à cabeça
-    hatMount.position.set(0, 0.725 + 0.03, 0);
+    hatMount.position.set(0, 0.725, 0);     // no centro da cabeça
     group.add(hatMount);
 
     // veste as roupas: { tshirt, shirt, pants } com o endereço (URL) de cada imagem, ou null
@@ -242,7 +248,7 @@
       const [pants, shirt, tshirt] = await Promise.all([
         loadImg(o.pants), loadImg(o.shirt), loadImg(o.tshirt),
         hatInfo ? Promise.all([loadGeo(hatInfo.model), loadTex(hatInfo.texture)])
-          .then(([g, t]) => { hatObj = hatObject(g, t); }).catch(() => { hatFailed = true; }) : null
+          .then(([g, t]) => { hatObj = hatObject(g, t, hatInfo.mode); }).catch(() => { hatFailed = true; }) : null
       ]);
       if (me !== token) return [];            // chegou uma troca mais nova: ignora esta
       const failed = [];                       // endereços pedidos que não carregaram
@@ -283,7 +289,7 @@
     (rows || []).forEach(r => {
       if (!r) return;
       if (r.kind === 'hat') {
-        if (r.model_path) o.hat = { model: urlFor(db, r.model_path, 'hat'), texture: urlFor(db, r.image_path, 'hat') };
+        if (r.model_path) o.hat = { model: urlFor(db, r.model_path, 'hat'), texture: urlFor(db, r.image_path, 'hat'), mode: r.hat_mode === 'cover' ? 'cover' : 'top' };
       } else if (r.kind in o) {
         o[r.kind] = urlFor(db, r.image_path, r.kind);
       }
