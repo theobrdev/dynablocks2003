@@ -473,6 +473,7 @@
     btn.onclick = async () => {
       const f = file.files[0], title = name.value.trim(), isHat = kind.value === 'hat';
       const m = modelFile.files[0];
+      let objText = null;
       if (!f) return note(isHat ? 'Choose the hat texture (PNG) first.' : 'Choose an image first.', false);
       if (!MIME[f.type]) return note('Only PNG, JPG, WEBP or GIF images (PNG is best: it keeps transparency).', false);
       if (f.size > MAX_BYTES) return note('The image must be 1 MB or smaller.', false);
@@ -483,7 +484,7 @@
         if (!m) return note('Choose the 3D model (.obj file) first.', false);
         if (!/\.obj$/i.test(m.name)) return note('The 3D model must be an .obj file.', false);
         if (m.size > 1.5 * 1024 * 1024) return note('The 3D model must be 1.5 MB or smaller.', false);
-        try { window.Avatar.parseOBJ(await m.text()); } catch (e) { return note(e.message, false); }   // confere o modelo antes de enviar
+        try { objText = await m.text(); window.Avatar.parseOBJ(objText); } catch (e) { return note(e.message, false); }   // confere o modelo antes de enviar
       }
 
       btn.disabled = true; note('Uploading...', true);
@@ -494,7 +495,9 @@
       const up = await db.storage.from(bucket).upload(path, f, { contentType: f.type });
       if (up.error) { btn.disabled = false; return note(up.error.message, false); }
       if (isHat) {
-        const up2 = await db.storage.from(bucket).upload(modelPath, m, { contentType: 'text/plain' });
+        // o navegador manda um .obj como "application/octet-stream" (o Supabase recusa); por isso reembalamos o texto como text/plain
+        const objBlob = new Blob([objText], { type: 'text/plain' });
+        const up2 = await db.storage.from(bucket).upload(modelPath, objBlob, { contentType: 'text/plain' });
         if (up2.error) { await db.storage.from(bucket).remove([path]); btn.disabled = false; return note(up2.error.message, false); }
       }
 
