@@ -92,12 +92,12 @@
   const SUPABASE_KEY = 'sb_publishable_z_FQh2IHQ_I9h-sGmRCOvw_sHmtTFcx';
   const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 </script>
-<script src="avatar.js?v=20261029i"></script>
+<script src="avatar.js?v=20261029j"></script>
 <script>
 (function () {
   'use strict';
   const $ = id => document.getElementById(id);
-  const KINDS = { tshirt: 'Classic T-Shirt', shirt: 'Classic Shirt', pants: 'Classic Pants' };
+  const KINDS = { tshirt: 'Classic T-Shirt', shirt: 'Classic Shirt', pants: 'Classic Pants', hat: 'Hat' };
   const SHIRT_COLORS = { Red: 0xcc2222, Yellow: 0xe8d020, Green: 0x2e9e3e, Blue: 0x2a5bd7, Cyan: 0x20c8d8, Magenta: 0xcc2aa8 };
   const MAX_BYTES = 1048576;
   const MIME = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/gif': 'gif' };
@@ -118,10 +118,25 @@
   }
   const txt = t => document.createTextNode(t);
   const say = (t, ok) => { $('msg').textContent = t; $('msg').className = ok ? 'ok' : 'err'; };
-  const urlOf = it => window.Avatar.urlFor(db, it.image_path);
+  const urlOf = it => window.Avatar.urlFor(db, it.image_path, it.kind);                       // imagem (ou textura do chapéu)
+  const modelOf = it => (it.model_path ? window.Avatar.urlFor(db, it.model_path, 'hat') : null);   // modelo 3D do chapéu
   const nameOf = it => (it.creator && it.creator.username) || 'DynaBlocks';
   // miniatura da imagem; se não carregar, mostra o endereço que o navegador tentou abrir
   function thumb(it) {
+    if (it.kind === 'hat') {                       // chapéu: desenha o modelo 3D numa miniatura
+      const box = el('div', { className: 'cimg' });
+      const loading = el('small', { textContent: 'Loading 3D model...' });
+      loading.style.color = '#fff';
+      box.append(loading);
+      window.Avatar.thumbHat(modelOf(it), urlOf(it)).then(src => {
+        box.innerHTML = '';
+        box.append(el('img', { src, alt: it.name }));
+      }).catch(e => {
+        loading.textContent = 'Could not load this hat: ' + (e && e.message ? e.message : e);
+        loading.style.wordBreak = 'break-all';
+      });
+      return box;
+    }
     const url = urlOf(it);
     const img = el('img', { src: url, alt: it.name, loading: 'lazy' });
     img.onerror = () => {
@@ -170,7 +185,10 @@
   }
   function applyPreview() {
     const o = {};
-    Object.keys(KINDS).forEach(k => { o[k] = tryOn[k] ? urlOf(tryOn[k]) : null; });
+    Object.keys(KINDS).forEach(k => {
+      const it = tryOn[k];
+      o[k] = !it ? null : (k === 'hat' ? { model: modelOf(it), texture: urlOf(it) } : urlOf(it));
+    });
     if (!pvChar) return;
     const names = Object.keys(KINDS).filter(k => tryOn[k]).map(k => tryOn[k].name);
     const info = $('pv-info');
@@ -196,7 +214,7 @@
   // ---------- dados ----------
   async function loadAll() {
     const { data, error } = await db.from('catalog_items')
-      .select('id, kind, name, price, image_path, creator_id, status, created_at')
+      .select('id, kind, name, price, image_path, model_path, creator_id, status, created_at')
       .order('created_at', { ascending: true });
     if (error) { $('grid').textContent = error.message; return; }
     items = data || [];
@@ -235,7 +253,7 @@
   function renderTabs() {
     const t = $('tabs');
     t.innerHTML = '';
-    const defs = [['all', 'All'], ['tshirt', 'T-Shirts'], ['shirt', 'Shirts'], ['pants', 'Pants']];
+    const defs = [['all', 'All'], ['tshirt', 'T-Shirts'], ['shirt', 'Shirts'], ['pants', 'Pants'], ['hat', 'Hats']];
     if (me) defs.push(['mine', 'My Items']);
     defs.forEach(([k, label]) => {
       const a = el('a', { textContent: label, className: tab === k ? 'on' : '' });
@@ -309,7 +327,9 @@
     if (!confirm('Delete "' + it.name + '"? Everyone who owns it loses it.')) return;
     const { data, error } = await db.from('catalog_items').delete().eq('id', it.id).select();
     if (error || !data.length) return alert(error ? error.message : 'Not allowed.');
-    if (!/^img\//.test(it.image_path)) await db.storage.from('assets').remove([it.image_path]);
+    const bucket = it.kind === 'hat' ? 'hats' : 'assets';
+    const files = [it.image_path, it.model_path].filter(p => p && !/^(img|models)\//.test(p));
+    if (files.length) await db.storage.from(bucket).remove(files);
     loadAll();
   }
 
@@ -373,7 +393,10 @@
       const img = new Image();
       img.onload = () => {
         URL.revokeObjectURL(url);
-        if (kind === 'tshirt') {
+        if (kind === 'hat') {
+          resolve(img.width >= 2 && img.height >= 2 && img.width <= 1024 && img.height <= 1024
+            ? null : 'A hat texture must be between 2 and 1024 pixels wide and tall.');
+        } else if (kind === 'tshirt') {
           resolve(img.width >= 32 && img.height >= 32 && img.width <= 1024 && img.height <= 1024
             ? null : 'A T-Shirt picture must be between 32 and 1024 pixels wide and tall.');
         } else {
@@ -395,31 +418,65 @@
     Object.keys(KINDS).forEach(k => kind.append(el('option', { value: k, textContent: KINDS[k] })));
     const name = el('input', { type: 'text', maxLength: 50 });
     const file = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,image/gif' });
+    const modelFile = el('input', { type: 'file', accept: '.obj' });
+    const modelLabel = el('label', { textContent: '3D model (.obj file, up to 1.5 MB):' });
+    const imgLabel = el('label');
+    const LABELS = {
+      tshirt: 'Picture (a PNG up to 1024 px, placed on the front of the torso):',
+      shirt: 'Image (585 x 559 template, PNG with transparency):',
+      pants: 'Image (585 x 559 template, PNG with transparency):',
+      hat: 'Texture (the hat\u2019s PNG picture, up to 1024 px):'
+    };
+    const refreshForm = () => {
+      imgLabel.textContent = LABELS[kind.value];
+      const hat = kind.value === 'hat';
+      modelLabel.style.display = hat ? 'block' : 'none';
+      modelFile.style.display = hat ? 'block' : 'none';
+    };
+    kind.onchange = refreshForm;
     const price = el('input', { type: 'number', min: 0, value: 100, style: 'width:80px' });
     const out = el('p');
     const btn = el('button', { type: 'button', textContent: isAdmin ? 'Add to catalog' : 'Send for approval' });
     const note = (t, ok) => { out.textContent = t; out.className = ok ? 'ok' : 'err'; };
 
     btn.onclick = async () => {
-      const f = file.files[0], title = name.value.trim();
-      if (!f) return note('Choose an image first.', false);
+      const f = file.files[0], title = name.value.trim(), isHat = kind.value === 'hat';
+      const m = modelFile.files[0];
+      if (!f) return note(isHat ? 'Choose the hat texture (PNG) first.' : 'Choose an image first.', false);
       if (!MIME[f.type]) return note('Only PNG, JPG, WEBP or GIF images (PNG is best: it keeps transparency).', false);
       if (f.size > MAX_BYTES) return note('The image must be 1 MB or smaller.', false);
       if (title.length < 3) return note('Give it a name (at least 3 characters).', false);
       const bad = await checkImage(f, kind.value);
       if (bad) return note(bad, false);
+      if (isHat) {
+        if (!m) return note('Choose the 3D model (.obj file) first.', false);
+        if (!/\.obj$/i.test(m.name)) return note('The 3D model must be an .obj file.', false);
+        if (m.size > 1.5 * 1024 * 1024) return note('The 3D model must be 1.5 MB or smaller.', false);
+        try { window.Avatar.parseOBJ(await m.text()); } catch (e) { return note(e.message, false); }   // confere o modelo antes de enviar
+      }
 
       btn.disabled = true; note('Uploading...', true);
-      const path = me + '/catalog-' + crypto.randomUUID() + '.' + MIME[f.type];
-      const up = await db.storage.from('assets').upload(path, f, { contentType: f.type });
+      const bucket = isHat ? 'hats' : 'assets';
+      const id = crypto.randomUUID();
+      const path = me + (isHat ? '/hat-' : '/catalog-') + id + '.' + MIME[f.type];
+      const modelPath = isHat ? me + '/hat-' + id + '.obj' : null;
+      const up = await db.storage.from(bucket).upload(path, f, { contentType: f.type });
       if (up.error) { btn.disabled = false; return note(up.error.message, false); }
+      if (isHat) {
+        const up2 = await db.storage.from(bucket).upload(modelPath, m, { contentType: 'text/plain' });
+        if (up2.error) { await db.storage.from(bucket).remove([path]); btn.disabled = false; return note(up2.error.message, false); }
+      }
 
       const row = { kind: kind.value, name: title, image_path: path };
+      if (isHat) row.model_path = modelPath;
       if (isAdmin) { row.status = 'approved'; row.price = Math.max(0, parseInt(price.value, 10) || 0); }
       const ins = await db.from('catalog_items').insert(row);
       btn.disabled = false;
-      if (ins.error) { await db.storage.from('assets').remove([path]); return note(ins.error.message, false); }
-      file.value = ''; name.value = '';
+      if (ins.error) {
+        await db.storage.from(bucket).remove([path].concat(isHat ? [modelPath] : []));
+        return note(ins.error.message, false);
+      }
+      file.value = ''; modelFile.value = ''; name.value = '';
       note(isAdmin ? 'Added to the catalog!' : 'Sent! An admin will review it.', true);
       loadAll();
     };
@@ -431,7 +488,8 @@
         : 'Your design is reviewed by an admin, who sets the price. You can have up to 5 waiting.' })),
       el('label', { textContent: 'Type:' }), kind,
       el('label', { textContent: 'Name:' }), name,
-      el('label', { textContent: 'Image (Shirts and Pants: 585 x 559 template, PNG with transparency; T-Shirt: a picture up to 1024 px):' }), file);
+      imgLabel, file, modelLabel, modelFile);
+    refreshForm();
     if (isAdmin) box.append(el('label', { textContent: 'Price (points):' }), price);
     box.append(btn, out);
   }
