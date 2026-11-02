@@ -55,6 +55,7 @@
   // ================== Chapéus (modelos 3D em .obj + textura 2D) ==================
   // O leitor de .obj é nosso (só lê números): um arquivo enviado por um jogador nunca roda código.
   const OBJ_LIMITS = { vertices: 40000, triangles: 40000 };
+  const HAT_FIT_WIDTH = 0.74;     // largura final dos chapéus (cabeça = 0,56)
 
   // texto .obj -> { pos, uv, nor } (triângulos soltos). Aceita faces com 3 ou mais pontos e índices negativos.
   function parseOBJ(text) {
@@ -140,9 +141,10 @@
   function hatObject(geo, tex) {
     const b = geo.boundingBox;
     const dx = b.max.x - b.min.x, dz = b.max.z - b.min.z;
-    let k = 0.56;                                // 1 "stud" do Roblox = 0,56 unidades aqui (a cabeça tem 0,56 de diâmetro)
-    const w = Math.max(dx, dz) * k;
-    if (w > 1.2) k *= 1.2 / w; else if (w > 0 && w < 0.3) k *= 0.3 / w;
+    // todo chapéu é ajustado ao tamanho da cabeça (que tem 0,56 de diâmetro): a maior largura do chapéu,
+    // contando a aba, vira 0,74 (um pouco maior que a cabeça, para ela caber por dentro)
+    const widest = Math.max(dx, dz);
+    const k = widest > 1e-6 ? HAT_FIT_WIDTH / widest : 1;
     const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({
       map: tex || null, color: tex ? 0xffffff : 0x9a9a9a, side: THREE.DoubleSide }));
     mesh.position.set(-(b.min.x + b.max.x) / 2, -b.min.y, -(b.min.z + b.max.z) / 2);
