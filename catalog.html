@@ -133,8 +133,15 @@
         box.innerHTML = '';
         box.append(el('img', { src, alt: it.name }));
       }).catch(e => {
-        loading.textContent = 'Could not load this hat: ' + (e && e.message ? e.message : e);
+        // mostra o motivo e o endereço completo (clicável) do modelo e da textura, para você testar no navegador
+        loading.textContent = 'Could not load this hat: ' + (e && e.message ? e.message : e) + '. Test these links: ';
         loading.style.wordBreak = 'break-all';
+        [modelOf(it), urlOf(it)].forEach(u => {
+          const abs = new URL(u, location.href).href;
+          const a = el('a', { href: abs, target: '_blank', rel: 'noopener noreferrer', textContent: abs });
+          a.style.color = '#fff';
+          loading.append(a, document.createElement('br'));
+        });
       });
       return box;
     }
