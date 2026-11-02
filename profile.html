@@ -214,7 +214,7 @@
     const toggle = el('button', { type: 'button', textContent: state.isPrivate ? 'Make Public' : 'Make Private' });
     toggle.onclick = async () => {
       const next = { ...state, isPrivate: !state.isPrivate };
-      if (await save(next)) location.reload();
+      if (await save(next)) { if (window.checkAchievements) await window.checkAchievements(); load(); }
     };
 
     const bio = el('textarea', { rows: 4, maxLength: 300, value: state.bio });
@@ -238,7 +238,7 @@
     const saveBtn = el('button', { type: 'button', textContent: 'Save preferences' });
     saveBtn.onclick = async () => {
       const next = { bio: bio.value.trim(), color: state.color, showEmail: email.checked, isPrivate: state.isPrivate };
-      if (await save(next)) { say('Saved!', true); setTimeout(() => location.reload(), 600); }
+      if (await save(next)) { say('Saved!', true); if (window.checkAchievements) await window.checkAchievements(); setTimeout(load, 700); }
     };
 
     return el('div', { className: 'prefs' },
@@ -253,6 +253,6 @@
 
   load();
 </script>
-<script src="daily.js?v=3"></script>
+<script src="daily.js?v=4"></script>
 </body>
 </html>

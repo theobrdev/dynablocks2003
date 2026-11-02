@@ -21,23 +21,30 @@
   const stored = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
   const store = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* ignora */ } };
 
+  // Confere as conquistas no servidor e mostra o aviso amarelo das NOVAS (ainda não vistas).
+  // Fica disponível para as outras páginas: depois de salvar o perfil ou vestir uma roupa, chamam window.checkAchievements().
+  async function checkAch() {
+    const { data: s } = await db.auth.getSession();
+    if (!s.session) return;
+    const ach = await db.rpc('check_achievements');
+    if (ach.error) { console.warn('check_achievements:', ach.error.message); return; }   // ex.: o SQL das conquistas ainda não foi rodado
+    (ach.data || []).forEach(a => toast('\u{1F3C6} Achievement unlocked: ' + a.name));
+  }
+  window.checkAchievements = checkAch;
+
   async function claim() {
     const { data: s } = await db.auth.getSession();
     if (!s.session) return;
     const uid = s.session.user.id, day = todayBR();
 
-    // 1) conquistas: uma conferência por dia (trava própria, não depende do bônus de pontos)
-    if (stored('dyna_ach_' + uid) !== day) {
-      const ach = await db.rpc('check_achievements');
-      if (ach.error) {
-        console.warn('check_achievements:', ach.error.message);   // ex.: o SQL das conquistas ainda não foi rodado
-      } else {
-        store('dyna_ach_' + uid, day);
-        (ach.data || []).forEach(a => toast('\u{1F3C6} Achievement unlocked: ' + a.name));
-      }
+    // 1) conquistas: no máximo uma conferência a cada 5 minutos por navegador
+    const kT = 'dyna_ach_t_' + uid;
+    if (Date.now() - (parseInt(stored(kT) || '0', 10) || 0) > 5 * 60 * 1000) {
+      store(kT, String(Date.now()));
+      await checkAch();
     }
 
-    // 2) bônus diário de pontos
+    // 2) bônus diário de pontos (uma vez por dia)
     if (stored('dyna_daily_' + uid) === day) return;
     const { data, error } = await db.rpc('claim_daily_bonus');
     if (error) return;
