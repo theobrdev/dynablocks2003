@@ -93,7 +93,7 @@
   const SUPABASE_KEY = 'sb_publishable_z_FQh2IHQ_I9h-sGmRCOvw_sHmtTFcx';
   const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 </script>
-<script src="avatar.js?v=20261029l"></script>
+<script src="avatar.js?v=20261029m"></script>
 <script>
 (function () {
   'use strict';
@@ -354,11 +354,11 @@
         fit.title = 'How the hat sits on the head';
         fit.onclick = async e => {
           e.preventDefault();
-          const next = it.hat_mode === 'cover' ? 'top' : 'cover';
-          const msg = next === 'cover'
-            ? 'Make "' + it.name + '" COVER the head (like a pumpkin head)?'
-            : 'Make "' + it.name + '" sit ON TOP of the head (like a cap or helmet)?';
-          if (!confirm(msg)) return;
+          const LABEL = { auto: 'Automatic', cover: 'Covers the head (pumpkin head, mask...)', top: 'On top of the head (cap, helmet...)' };
+          const order = ['auto', 'cover', 'top'];
+          const now = order.includes(it.hat_mode) ? it.hat_mode : 'auto';
+          const next = order[(order.indexOf(now) + 1) % order.length];
+          if (!confirm('Fit of "' + it.name + '" is now: ' + LABEL[now] + '.\nChange it to: ' + LABEL[next] + '?')) return;
           const { data, error } = await db.from('catalog_items').update({ hat_mode: next }).eq('id', it.id).select();
           if (error || !data.length) return alert(error ? error.message : 'Not allowed.');
           loadAll();
@@ -471,7 +471,8 @@
     const imgLabel = el('label');
     const fitLabel = el('label', { textContent: 'How it sits on the head:' });
     const fitSel = el('select');
-    fitSel.append(el('option', { value: 'top', textContent: 'On top of the head (cap, helmet...)' }),
+    fitSel.append(el('option', { value: 'auto', textContent: 'Automatic (recommended)' }),
+                  el('option', { value: 'top', textContent: 'On top of the head (cap, helmet...)' }),
                   el('option', { value: 'cover', textContent: 'Covers the head (pumpkin head, mask...)' }));
     const LABELS = {
       tshirt: 'Picture (a PNG up to 1024 px, placed on the front of the torso):',

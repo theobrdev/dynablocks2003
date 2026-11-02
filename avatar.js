@@ -142,11 +142,13 @@
   // mode "top"  = o chapéu fica POR CIMA da cabeça (a base apoiada no meio da cabeça): boné, capacete, cartola...
   // mode "cover" = o chapéu COBRE a cabeça (centrado nela): cabeça de abóbora, máscaras...
   // Nos dois casos ele é redimensionado para o tamanho da cabeça.
+  // mode "auto" (ou sem modo) = o site decide pelo formato: modelo "redondo/alto" (altura quase igual à largura,
+  // como uma abóbora) cobre a cabeça; modelo "achatado" (capacete, boné, com aba) fica por cima.
   function hatObject(geo, tex, mode) {
-    const cover = mode === 'cover';
     const b = geo.boundingBox;
-    const dx = b.max.x - b.min.x, dz = b.max.z - b.min.z;
+    const dx = b.max.x - b.min.x, dz = b.max.z - b.min.z, dy = b.max.y - b.min.y;
     const widest = Math.max(dx, dz);
+    const cover = mode === 'cover' || (mode !== 'top' && widest > 1e-6 && dy / widest >= 0.8);
     const k = widest > 1e-6 ? (cover ? HAT_COVER_WIDTH : HAT_FIT_WIDTH) / widest : 1;
     const mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({
       map: tex || null, color: tex ? 0xffffff : 0x9a9a9a, side: THREE.DoubleSide }));
@@ -157,6 +159,7 @@
     holder.scale.setScalar(k);
     holder.rotation.y = Math.PI;                 // a frente do Roblox é -Z; a do nosso personagem é +Z
     holder.position.y = cover ? 0 : 0.03;        // relativo ao centro da cabeça
+    holder.userData.cover = cover;
     return holder;
   }
 
@@ -176,7 +179,7 @@
     scene.add(sun);
     const hat = hatObject(geo, tex, mode);
     scene.add(hat);
-    const ty = mode === 'cover' ? 0 : 0.2;       // altura que a câmera olha
+    const ty = hat.userData.cover ? 0 : 0.2;     // altura que a câmera olha
     const cam = new THREE.PerspectiveCamera(32, 1, 0.05, 20);
     cam.position.set(1.0, ty + 0.55, 1.6);
     cam.lookAt(0, ty, 0);
@@ -289,7 +292,7 @@
     (rows || []).forEach(r => {
       if (!r) return;
       if (r.kind === 'hat') {
-        if (r.model_path) o.hat = { model: urlFor(db, r.model_path, 'hat'), texture: urlFor(db, r.image_path, 'hat'), mode: r.hat_mode === 'cover' ? 'cover' : 'top' };
+        if (r.model_path) o.hat = { model: urlFor(db, r.model_path, 'hat'), texture: urlFor(db, r.image_path, 'hat'), mode: r.hat_mode === 'cover' || r.hat_mode === 'top' ? r.hat_mode : 'auto' };
       } else if (r.kind in o) {
         o[r.kind] = urlFor(db, r.image_path, r.kind);
       }
