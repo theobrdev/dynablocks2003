@@ -93,7 +93,7 @@
   const SUPABASE_KEY = 'sb_publishable_z_FQh2IHQ_I9h-sGmRCOvw_sHmtTFcx';
   const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 </script>
-<script src="avatar.js?v=20261029m"></script>
+<script src="avatar.js?v=20261029o"></script>
 <script>
 (function () {
   'use strict';
@@ -129,7 +129,7 @@
       const loading = el('small', { textContent: 'Loading 3D model...' });
       loading.style.color = '#fff';
       box.append(loading);
-      window.Avatar.thumbHat(modelOf(it), urlOf(it), it.hat_mode).then(src => {
+      window.Avatar.thumbHat(modelOf(it), urlOf(it), it.hat_mode, it.hat_turn).then(src => {
         box.innerHTML = '';
         box.append(el('img', { src, alt: it.name }));
       }).catch(e => {
@@ -218,7 +218,7 @@
     const o = {};
     Object.keys(KINDS).forEach(k => {
       const it = tryOn[k];
-      o[k] = !it ? null : (k === 'hat' ? { model: modelOf(it), texture: urlOf(it), mode: it.hat_mode } : urlOf(it));
+      o[k] = !it ? null : (k === 'hat' ? { model: modelOf(it), texture: urlOf(it), mode: it.hat_mode, turn: it.hat_turn } : urlOf(it));
     });
     if (!pvChar) return;
     const names = Object.keys(KINDS).filter(k => tryOn[k]).map(k => tryOn[k].name);
@@ -245,7 +245,7 @@
   // ---------- dados ----------
   async function loadAll() {
     const { data, error } = await db.from('catalog_items')
-      .select('id, kind, name, price, image_path, model_path, hat_mode, creator_id, status, created_at')
+      .select('id, kind, name, price, image_path, model_path, hat_mode, hat_turn, creator_id, status, created_at')
       .order('created_at', { ascending: true });
     if (error) { $('grid').textContent = error.message; return; }
     items = data || [];
@@ -363,7 +363,16 @@
           if (error || !data.length) return alert(error ? error.message : 'Not allowed.');
           loadAll();
         };
-        parts.push(fit, txt(' \u00B7 '));
+        const turn = el('a', { href: '#', textContent: 'turn' });
+        turn.title = 'Turn the hat 90 degrees (if the front of the hat faces sideways)';
+        turn.onclick = async e => {
+          e.preventDefault();
+          const next = ((it.hat_turn | 0) + 1) % 4;
+          const { data, error } = await db.from('catalog_items').update({ hat_turn: next }).eq('id', it.id).select();
+          if (error || !data.length) return alert(error ? error.message : 'Not allowed.');
+          loadAll();
+        };
+        parts.push(fit, txt(' \u00B7 '), turn, txt(' \u00B7 '));
       }
       adm.append(...parts, del);
       c.append(adm);
@@ -471,6 +480,10 @@
     const imgLabel = el('label');
     const fitLabel = el('label', { textContent: 'How it sits on the head:' });
     const fitSel = el('select');
+    const turnLabel = el('label', { textContent: 'Which way does the front of the hat face? (use "turn" later if it looks sideways)' });
+    const turnSel = el('select');
+    [['0', 'Default (front of a Roblox hat)'], ['1', 'Turn 90\u00B0'], ['2', 'Turn 180\u00B0'], ['3', 'Turn 270\u00B0 (e.g. the helmet)']]
+      .forEach(([v, t]) => turnSel.append(el('option', { value: v, textContent: t })));
     fitSel.append(el('option', { value: 'auto', textContent: 'Automatic (recommended)' }),
                   el('option', { value: 'top', textContent: 'On top of the head (cap, helmet...)' }),
                   el('option', { value: 'cover', textContent: 'Covers the head (pumpkin head, mask...)' }));
@@ -487,6 +500,8 @@
       modelFile.style.display = hat ? 'block' : 'none';
       fitLabel.style.display = hat && isAdmin ? 'block' : 'none';
       fitSel.style.display = hat && isAdmin ? 'block' : 'none';
+      turnLabel.style.display = hat && isAdmin ? 'block' : 'none';
+      turnSel.style.display = hat && isAdmin ? 'block' : 'none';
     };
     kind.onchange = refreshForm;
     const price = el('input', { type: 'number', min: 0, value: 100, style: 'width:80px' });
@@ -526,7 +541,7 @@
       }
 
       const row = { kind: kind.value, name: title, image_path: path };
-      if (isHat) { row.model_path = modelPath; if (isAdmin) row.hat_mode = fitSel.value; }
+      if (isHat) { row.model_path = modelPath; if (isAdmin) { row.hat_mode = fitSel.value; row.hat_turn = parseInt(turnSel.value, 10) || 0; } }
       if (isAdmin) { row.status = 'approved'; row.price = Math.max(0, parseInt(price.value, 10) || 0); }
       const ins = await db.from('catalog_items').insert(row);
       btn.disabled = false;
@@ -546,7 +561,7 @@
         : 'Your design is reviewed by an admin, who sets the price. You can have up to 5 waiting.' })),
       el('label', { textContent: 'Type:' }), kind,
       el('label', { textContent: 'Name:' }), name,
-      imgLabel, file, modelLabel, modelFile, fitLabel, fitSel);
+      imgLabel, file, modelLabel, modelFile, fitLabel, fitSel, turnLabel, turnSel);
     refreshForm();
     if (isAdmin) box.append(el('label', { textContent: 'Price (points):' }), price);
     box.append(btn, out);

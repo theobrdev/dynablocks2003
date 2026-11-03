@@ -144,7 +144,7 @@
   // Nos dois casos ele é redimensionado para o tamanho da cabeça.
   // mode "auto" (ou sem modo) = o site decide pelo formato: modelo "redondo/alto" (altura quase igual à largura,
   // como uma abóbora) cobre a cabeça; modelo "achatado" (capacete, boné, com aba) fica por cima.
-  function hatObject(geo, tex, mode) {
+  function hatObject(geo, tex, mode, turn) {
     const b = geo.boundingBox;
     const dx = b.max.x - b.min.x, dz = b.max.z - b.min.z, dy = b.max.y - b.min.y;
     const widest = Math.max(dx, dz);
@@ -157,7 +157,9 @@
     const holder = new THREE.Group();
     holder.add(mesh);
     holder.scale.setScalar(k);
-    holder.rotation.y = Math.PI;                 // a frente do Roblox é -Z; a do nosso personagem é +Z
+    // A frente do Roblox é -Z e a do nosso personagem é +Z, então o padrão é girar meia volta (180°).
+    // Alguns modelos têm a frente em outro lado (ex.: a viseira de um capacete em -X): "turn" acrescenta 0, 90, 180 ou 270 graus.
+    holder.rotation.y = Math.PI + ((turn | 0) % 4 + 4) % 4 * (Math.PI / 2);
     holder.position.y = cover ? 0 : 0.03;        // relativo ao centro da cabeça
     holder.userData.cover = cover;
     return holder;
@@ -165,7 +167,7 @@
 
   // imagem (data URL) do chapéu para as miniaturas do catálogo
   let thumbRenderer = null;
-  async function thumbHat(model, texture, mode) {
+  async function thumbHat(model, texture, mode, turn) {
     const [geo, tex] = await Promise.all([loadGeo(model), loadTex(texture)]);
     if (!thumbRenderer) {
       thumbRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
@@ -177,7 +179,7 @@
     const sun = new THREE.DirectionalLight(0xffffff, 0.5);
     sun.position.set(2, 4, 3);
     scene.add(sun);
-    const hat = hatObject(geo, tex, mode);
+    const hat = hatObject(geo, tex, mode, turn);
     scene.add(hat);
     const ty = hat.userData.cover ? 0 : 0.2;     // altura que a câmera olha
     const cam = new THREE.PerspectiveCamera(32, 1, 0.05, 20);
@@ -251,7 +253,7 @@
       const [pants, shirt, tshirt] = await Promise.all([
         loadImg(o.pants), loadImg(o.shirt), loadImg(o.tshirt),
         hatInfo ? Promise.all([loadGeo(hatInfo.model), loadTex(hatInfo.texture)])
-          .then(([g, t]) => { hatObj = hatObject(g, t, hatInfo.mode); }).catch(() => { hatFailed = true; }) : null
+          .then(([g, t]) => { hatObj = hatObject(g, t, hatInfo.mode, hatInfo.turn); }).catch(() => { hatFailed = true; }) : null
       ]);
       if (me !== token) return [];            // chegou uma troca mais nova: ignora esta
       const failed = [];                       // endereços pedidos que não carregaram
@@ -292,7 +294,8 @@
     (rows || []).forEach(r => {
       if (!r) return;
       if (r.kind === 'hat') {
-        if (r.model_path) o.hat = { model: urlFor(db, r.model_path, 'hat'), texture: urlFor(db, r.image_path, 'hat'), mode: r.hat_mode === 'cover' || r.hat_mode === 'top' ? r.hat_mode : 'auto' };
+        if (r.model_path) o.hat = { model: urlFor(db, r.model_path, 'hat'), texture: urlFor(db, r.image_path, 'hat'), mode: r.hat_mode === 'cover' || r.hat_mode === 'top' ? r.hat_mode : 'auto',
+          turn: Number.isInteger(r.hat_turn) ? ((r.hat_turn % 4) + 4) % 4 : 0 };
       } else if (r.kind in o) {
         o[r.kind] = urlFor(db, r.image_path, r.kind);
       }
