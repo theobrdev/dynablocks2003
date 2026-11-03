@@ -72,9 +72,30 @@
     let outfit = null;
     if (sess.session && window.Avatar) outfit = await window.Avatar.loadOutfit(db).catch(() => null);
 
-    const g = window.Game.start({ level: W.cleanLevel(row.data), container: $('gameview'), multiplayer, shirtColor, outfit });
+    const g = window.Game.start({ level: W.cleanLevel(row.data), container: $('gameview'), multiplayer, shirtColor, outfit,
+      touch: params.has('touch') ? true : undefined });   // ?touch=1 no endereço força os controles de toque (para testar no computador)
     $('hud-respawn').onclick = g.respawn;
     $('hud-exit').onclick = () => { location.href = 'play.html'; };
+
+    // celular: dica dos controles e botão de tela cheia (esconde a barra do navegador)
+    const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    if (coarse) {
+      $('hud-hint').textContent = 'Left stick = move \u00B7 JUMP button = jump \u00B7 drag = look \u00B7 pinch = zoom \u00B7 tap = interact';
+      const root = document.documentElement;
+      if (root.requestFullscreen) {
+        const full = $('hud-full');
+        full.style.display = 'inline-block';
+        full.onclick = async () => {
+          try {
+            if (document.fullscreenElement) await document.exitFullscreen();
+            else {
+              await root.requestFullscreen();
+              if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape').catch(() => {});
+            }
+          } catch (e) { /* alguns navegadores não deixam: tudo bem */ }
+        };
+      }
+    }
     $('gameview').appendChild(W.makeCameraMenu({
       rotate: g.rotateCamera, zoom: g.zoomCamera, reset: g.resetCamera
     }));

@@ -22,7 +22,7 @@
     'for k, v in pairs(string) do if k ~= "rep" then safe_string[k] = v end end',
     'getmetatable("").__index = safe_string',
     '',
-    'local touch, timers = {}, {}',
+    'local touch, click, timers = {}, {}, {}',
     '',
     'local function num(v, d)',
     '  v = tonumber(v)',
@@ -64,6 +64,9 @@
     'env.onTouch = function(name, fn)',
     '  if type(fn) == "function" then touch[tostring(name)] = fn end',
     'end',
+    'env.onClick = function(name, fn)',
+    '  if type(fn) == "function" then click[tostring(name)] = fn end',
+    'end',
     'env.every = function(seconds, fn)',
     '  if type(fn) == "function" and #timers < 20 then',
     '    local s = num(seconds, 1)',
@@ -85,6 +88,11 @@
     '',
     'function __fire_touch()',
     '  local fn = touch[DB.arg]',
+    '  if fn then guarded(fn) end',
+    'end',
+    '',
+    'function __fire_click()',
+    '  local fn = click[DB.arg]',
     '  if fn then guarded(fn) end',
     'end',
     '',
@@ -276,7 +284,7 @@
     };
 
     // --- inicia o Lua e roda os scripts do mapa ---
-    let luaRun = null, luaTouch = null, luaTick = null;
+    let luaRun = null, luaTouch = null, luaTick = null, luaClick = null;
     try {
       if (!window.fengari) throw new Error('Lua engine did not load');
       window.__DB = DB;
@@ -284,6 +292,7 @@
       window.__DB = undefined;
       luaRun = window.fengari.load('__run_pending()');
       luaTouch = window.fengari.load('__fire_touch()');
+      luaClick = window.fengari.load('__fire_click()');
       luaTick = window.fengari.load('__tick()');
       level.objects.filter(o => o.type === 'Script').forEach(s => {
         DB.name = s.name;
@@ -295,21 +304,135 @@
       hudLog('[Lua unavailable] ' + (e && e.message ? e.message : e));
     }
 
-    // --- controles ---
+    // --- controles: teclado + mouse no computador; joystick, botão de pular e gestos no celular ---
     const keys = {};
+    const touchMove = { x: 0, y: 0 };            // joystick: x = direita, y = baixo (como na tela)
+    let touchJump = false;
+    let lastTouchAt = 0;                         // o celular também gera "cliques de mouse" falsos; ignoramos esses
     on(window, 'keydown', e => { keys[e.code] = true; if (e.code === 'Space') e.preventDefault(); });
     on(window, 'keyup', e => { keys[e.code] = false; });
     let yaw = 0, pitch = 0.45, dist = 12, looking = false, lx = 0, ly = 0;
     const cv = renderer.domElement;
+    cv.style.touchAction = 'none';
+
+    // clicar (mouse) ou tocar (celular) numa parte do mapa: dispara onClick("Parte", ...) dos scripts
+    const raycaster = new THREE.Raycaster();
+    const ndc = new THREE.Vector2();
+    function clickAt(cx, cy) {
+      if (!luaClick) return;
+      const rect = cv.getBoundingClientRect();
+      ndc.set(((cx - rect.left) / rect.width) * 2 - 1, -((cy - rect.top) / rect.height) * 2 + 1);
+      raycaster.setFromCamera(ndc, camera);
+      const hits = raycaster.intersectObjects(parts.filter(p => p.visible).map(p => p.mesh), false);
+      if (!hits.length) return;
+      const p = parts.find(q => q.mesh === hits[0].object);
+      if (!p) return;
+      DB.arg = p.obj.name;
+      try { luaClick(); } catch (e) { hudLog('[error] ' + (e && e.message ? e.message : e)); }
+    }
+
+    // mouse
+    let mdown = null;
     on(cv, 'contextmenu', e => e.preventDefault());
-    on(cv, 'mousedown', e => { if (e.button === 2) { looking = true; lx = e.clientX; ly = e.clientY; e.preventDefault(); } });
-    on(window, 'mouseup', () => { looking = false; });
+    on(cv, 'mousedown', e => {
+      if (e.button === 2) { looking = true; lx = e.clientX; ly = e.clientY; e.preventDefault(); }
+      else if (e.button === 0) mdown = { x: e.clientX, y: e.clientY, t: performance.now() };
+    });
+    on(window, 'mouseup', e => {
+      looking = false;
+      if (e.button === 0 && mdown) {
+        const moved = Math.hypot(e.clientX - mdown.x, e.clientY - mdown.y);
+        if (moved < 6 && performance.now() - mdown.t < 500 && performance.now() - lastTouchAt > 700) clickAt(e.clientX, e.clientY);
+        mdown = null;
+      }
+    });
     on(window, 'mousemove', e => {
       if (!looking) return;
       api.rotateCamera(e.clientX - lx, e.clientY - ly);
       lx = e.clientX; ly = e.clientY;
     });
     on(cv, 'wheel', e => { e.preventDefault(); api.zoomCamera(e.deltaY > 0 ? 1.1 : 0.9); }, { passive: false });
+
+    // celular: aparece sozinho em telas de toque (ou force com opts.touch = true / ?touch=1 no endereço)
+    const isTouch = opts.touch === true ||
+      (opts.touch !== false && window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+    if (isTouch) {
+      layer.classList.add('touch-ui');
+      const joy = el('div', 'tc-joy');
+      const knob = el('div', 'tc-knob');
+      joy.append(knob);
+      const jumpBtn = el('div', 'tc-jump', 'JUMP');
+      layer.append(joy, jumpBtn);
+
+      // joystick (esquerda): move o personagem na direção em que a câmera olha
+      let joyId = null;
+      function joyUpdate(e) {
+        const rect = joy.getBoundingClientRect();
+        const half = rect.width / 2;
+        let dx = e.clientX - (rect.left + half), dy = e.clientY - (rect.top + half);
+        const d = Math.hypot(dx, dy);
+        if (d > half) { dx = dx / d * half; dy = dy / d * half; }
+        knob.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+        const nx = dx / half, ny = dy / half;
+        if (Math.hypot(nx, ny) < 0.2) { touchMove.x = 0; touchMove.y = 0; }   // zona morta no centro
+        else { touchMove.x = nx; touchMove.y = ny; }
+      }
+      const joyEnd = e => {
+        if (e.pointerId !== joyId) return;
+        joyId = null; knob.style.transform = ''; touchMove.x = 0; touchMove.y = 0;
+      };
+      joy.addEventListener('pointerdown', e => { joyId = e.pointerId; joy.setPointerCapture(e.pointerId); lastTouchAt = performance.now(); joyUpdate(e); e.preventDefault(); });
+      joy.addEventListener('pointermove', e => { if (e.pointerId === joyId) joyUpdate(e); });
+      joy.addEventListener('pointerup', joyEnd);
+      joy.addEventListener('pointercancel', joyEnd);
+
+      // botão de pular (direita)
+      let jumpId = null;
+      const jumpEnd = e => { if (e.pointerId !== jumpId) return; jumpId = null; touchJump = false; jumpBtn.classList.remove('on'); };
+      jumpBtn.addEventListener('pointerdown', e => { jumpId = e.pointerId; jumpBtn.setPointerCapture(e.pointerId); lastTouchAt = performance.now(); touchJump = true; jumpBtn.classList.add('on'); e.preventDefault(); });
+      jumpBtn.addEventListener('pointerup', jumpEnd);
+      jumpBtn.addEventListener('pointercancel', jumpEnd);
+
+      // resto da tela: 1 dedo arrastando gira a câmera, 2 dedos (pinça) dão zoom, um toque rápido "clica"
+      const fingers = new Map();
+      let pinch = 0, tap = null;
+      const spread = () => {
+        const pts = [...fingers.values()];
+        return pts.length < 2 ? 0 : Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      };
+      cv.addEventListener('pointerdown', e => {
+        if (e.pointerType !== 'touch') return;
+        lastTouchAt = performance.now();
+        cv.setPointerCapture(e.pointerId);
+        fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        tap = fingers.size === 1 ? { x: e.clientX, y: e.clientY, t: performance.now() } : null;
+        if (fingers.size === 2) pinch = spread();
+        e.preventDefault();
+      });
+      cv.addEventListener('pointermove', e => {
+        if (e.pointerType !== 'touch' || !fingers.has(e.pointerId)) return;
+        const prev = fingers.get(e.pointerId);
+        const dx = e.clientX - prev.x, dy = e.clientY - prev.y;
+        fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (fingers.size === 1) {
+          api.rotateCamera(dx * 1.4, dy * 1.4);
+          if (tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) > 10) tap = null;   // virou arrasto, não é toque
+        } else if (fingers.size === 2) {
+          const d = spread();
+          if (pinch > 0 && d > 0) api.zoomCamera(pinch / d);       // dedos se afastando = aproxima
+          pinch = d;
+        }
+      });
+      const fingerEnd = e => {
+        if (e.pointerType !== 'touch' || !fingers.has(e.pointerId)) return;
+        lastTouchAt = performance.now();
+        if (e.type === 'pointerup' && fingers.size === 1 && tap && performance.now() - tap.t < 450) clickAt(e.clientX, e.clientY);
+        fingers.delete(e.pointerId);
+        tap = null; pinch = 0;
+      };
+      cv.addEventListener('pointerup', fingerEnd);
+      cv.addEventListener('pointercancel', fingerEnd);
+    }
 
     // --- física simples (caixas alinhadas aos eixos) ---
     const hits = b => (
@@ -335,21 +458,23 @@
     }
     function physics(dt) {
       const surf = (P.onGround && P.standing) ? P.standing.obj.surface : 'Smooth';
-      const f = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
-      const r = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
+      let f = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
+      let r = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
+      if (touchMove.x || touchMove.y) { f += -touchMove.y; r += touchMove.x; }   // joystick do celular
+      const mag = Math.min(1, Math.hypot(f, r));                                 // empurrar o joystick pela metade = andar mais devagar
       const fx = -Math.sin(yaw), fz = -Math.cos(yaw);   // para frente (da câmera para o jogador)
       const rx = Math.cos(yaw), rz = -Math.sin(yaw);    // para a direita
       let vx = fx * f + rx * r, vz = fz * f + rz * r;
       const len = Math.hypot(vx, vz);
       moving = len > 0;
       const speed = surf === 'Sticky' ? 4.5 : 9;
-      if (moving) { vx = vx / len * speed; vz = vz / len * speed; face = Math.atan2(vx, vz); }
+      if (moving) { vx = vx / len * speed * mag; vz = vz / len * speed * mag; face = Math.atan2(vx, vz); }
       if (surf === 'Ice') {                               // gelo: escorrega
         const k = Math.min(1, dt * 1.2);
         P.vel.x += (vx - P.vel.x) * k;
         P.vel.z += (vz - P.vel.z) * k;
       } else { P.vel.x = vx; P.vel.z = vz; }
-      if (keys.Space && P.onGround) { P.vel.y = 13; P.onGround = false; }
+      if ((keys.Space || touchJump) && P.onGround) { P.vel.y = 13; P.onGround = false; }
       P.vel.y -= 32 * dt;
       if (P.vel.y < -60) P.vel.y = -60;
       P.onGround = false;

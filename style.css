@@ -176,3 +176,19 @@ a:hover { text-decoration: underline; }
 #scores .bform label { display: block; margin-top: 8px; }
 #scores .bform input { width: 100%; box-sizing: border-box; padding: 3px; border: 1px solid #7f9db9; }
 #scores .bform button { margin-top: 8px; }
+
+/* ---------- Celular: o site se ajusta à largura da tela ---------- */
+html { -webkit-text-size-adjust: 100%; }
+@media (max-width: 820px) {
+  #page { width: auto; max-width: 760px; padding: 0 10px 20px; box-sizing: border-box; }
+  #logo img { max-width: 92%; height: auto; }
+  #cols { flex-wrap: wrap; }
+  .col, .col.first, .col.second, .col.third, .col.shots { width: 50%; margin: 0; box-sizing: border-box; padding: 0 8px 0 0; }
+  .col.shots { text-align: center; }
+  .shot img.ss { max-width: 100%; height: auto; }
+  #footer .links a { display: inline-block; margin: 3px 8px; }
+  .mygb-table { display: block; overflow-x: auto; }
+}
+@media (max-width: 480px) {
+  .col, .col.first, .col.second, .col.third, .col.shots { width: 100%; padding: 0; }
+}

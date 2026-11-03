@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Play a Game - DynaBlocks</title>
 <link rel="stylesheet" href="style.css">
-<link rel="stylesheet" href="editor.css?v=20261029i">
+<link rel="stylesheet" href="editor.css?v=20261029n">
 </head>
 <body>
 
@@ -47,9 +47,10 @@
 <div id="gameview">
   <div id="hud-top">
     <div class="hudbox"><b id="hud-title"></b><br>
-      <small>W A S D move &middot; Space jump &middot; right-drag look &middot; wheel zoom</small><br>
+      <small id="hud-hint">W A S D move &middot; Space jump &middot; right-drag look &middot; wheel zoom &middot; click = interact</small><br>
       <button id="hud-respawn">Respawn</button>
       <button id="hud-exit">Exit</button>
+      <button id="hud-full" style="display:none">Fullscreen</button>
     </div>
   </div>
 </div>
@@ -64,8 +65,8 @@
 </script>
 <script src="world.js?v=20261029i"></script>
 <script src="avatar.js?v=20261029m"></script>
-<script src="game.js?v=20261029i"></script>
-<script src="play.js?v=20261029i"></script>
+<script src="game.js?v=20261029n"></script>
+<script src="play.js?v=20261029n"></script>
 <script src="daily.js?v=4"></script>
 </body>
 </html>
