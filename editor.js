@@ -552,6 +552,7 @@
     levelId = res.data.id;
     dirty = false;
     status('Saved "' + name + '" at ' + new Date().toLocaleTimeString() + '.');
+    if (window.checkAchievements) window.checkAchievements();      // conquistas de criação (aviso amarelo)
     return true;
   }
   function loadInto(row) {
