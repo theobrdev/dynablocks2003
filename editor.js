@@ -342,8 +342,16 @@
   }
 
   // ---------- ferramentas e mouse ----------
+  // cursor da área 3D conforme a ferramenta (os do Old Roblox)
+  const TOOL_CURSOR = {
+    select: '',
+    resize: "url('img/cursors/resize-nwse.cur') 15 15, nwse-resize",
+    rotate: "url('img/cursors/alt.cur') 15 12, alias"
+  };
+  const MOVE_CURSOR = "url('img/cursors/move.cur') 15 15, move";
   function setTool(t) {
     tool = t;
+    renderer.domElement.style.cursor = TOOL_CURSOR[t] || '';
     $('t-select').classList.toggle('on', t === 'select');
     $('t-resize').classList.toggle('on', t === 'resize');
     $('t-rotate').classList.toggle('on', t === 'rotate');
@@ -372,6 +380,7 @@
     if (tool === 'rotate') { rotatePart(o); return; }
     drag = { id, sx: ev.clientX, sy: ev.clientY, pos: { ...o.position }, size: { ...o.size }, off: null, before: snapshot(), moved: false };
     if (tool === 'select') {
+      renderer.domElement.style.cursor = MOVE_CURSOR;        // arrastando um bloco
       drag.plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -o.position.y);
       const hit = new THREE.Vector3();
       if (raycaster.ray.intersectPlane(drag.plane, hit)) drag.off = { x: o.position.x - hit.x, z: o.position.z - hit.z };
@@ -411,6 +420,7 @@
   window.addEventListener('mouseup', () => {
     if (drag && drag.moved) pushUndo(drag.before);
     drag = null;
+    renderer.domElement.style.cursor = TOOL_CURSOR[tool] || '';
   });
 
   // ---------- menu de blocos (barra de baixo) ----------
@@ -538,6 +548,10 @@
 
   // ---------- salvar / abrir (Supabase) ----------
   async function save() {
+    if (window.DynaCursor) window.DynaCursor.busy();        // cursor "ocupado" enquanto salva
+    try { return await saveInner(); } finally { if (window.DynaCursor) window.DynaCursor.idle(); }
+  }
+  async function saveInner() {
     const name = W.cleanName($('map-name').value, '');
     if (name.length < 3) { status('Map name: at least 3 characters (open MENU to change it).', true); return false; }
     level.map_name = name;

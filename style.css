@@ -192,3 +192,25 @@ html { -webkit-text-size-adjust: 100%; }
 @media (max-width: 480px) {
   .col, .col.first, .col.second, .col.third, .col.shots { width: 100%; padding: 0; }
 }
+
+/* ---------- Cursores do Old Roblox (img/cursors/, domínio público, por 4W2) ---------- */
+html { cursor: url('img/cursors/normal.cur') 3 3, auto; }
+a[href], button, select, summary, label, [role="button"],
+input[type="button"], input[type="submit"], input[type="reset"], input[type="checkbox"], input[type="radio"],
+input[type="file"], input[type="range"],
+.tab, .tabs a, .tool, .item, .emo-cell, .swatches button, .swatch-row button, .cm-grid button, .models-grid button
+  { cursor: url('img/cursors/link.cur') 3 3, pointer !important; }
+button:disabled, input:disabled, select:disabled, textarea:disabled, [aria-disabled="true"]
+  { cursor: url('img/cursors/unavailable.cur') 3 3, not-allowed !important; }
+abbr[title], [data-help] { cursor: url('img/cursors/help.cur') 3 3, help; }
+/* classes prontas para usar quando precisar */
+.cursor-help      { cursor: url('img/cursors/help.cur') 3 3, help !important; }
+.cursor-no        { cursor: url('img/cursors/unavailable.cur') 3 3, not-allowed !important; }
+.cursor-move      { cursor: url('img/cursors/move.cur') 15 15, move !important; }
+.cursor-resize-ew   { cursor: url('img/cursors/resize-ew.cur') 15 15, ew-resize !important; }
+.cursor-resize-ns   { cursor: url('img/cursors/resize-ns.cur') 15 15, ns-resize !important; }
+.cursor-resize-nwse { cursor: url('img/cursors/resize-nwse.cur') 15 15, nwse-resize !important; }
+.cursor-resize-nesw { cursor: url('img/cursors/resize-nesw.cur') 15 15, nesw-resize !important; }
+.cursor-alt       { cursor: url('img/cursors/alt.cur') 15 12, alias !important; }
+/* enquanto o cursor "ocupado" (cursors.js) está ativo, vale em toda a página */
+html.dyna-busy, html.dyna-busy * { cursor: inherit !important; }

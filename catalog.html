@@ -94,6 +94,7 @@
   const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 </script>
 <script src="avatar.js?v=20261029o"></script>
+<script src="cursors.js"></script>
 <script>
 (function () {
   'use strict';
@@ -509,7 +510,7 @@
     const btn = el('button', { type: 'button', textContent: isAdmin ? 'Add to catalog' : 'Send for approval' });
     const note = (t, ok) => { out.textContent = t; out.className = ok ? 'ok' : 'err'; };
 
-    btn.onclick = async () => {
+    const submit = async () => {
       const f = file.files[0], title = name.value.trim(), isHat = kind.value === 'hat';
       const m = modelFile.files[0];
       let objText = null;
@@ -552,6 +553,10 @@
       file.value = ''; modelFile.value = ''; name.value = '';
       note(isAdmin ? 'Added to the catalog!' : 'Sent! An admin will review it.', true);
       loadAll();
+    };
+    btn.onclick = async () => {
+      if (window.DynaCursor) window.DynaCursor.busy();       // cursor "ocupado" durante o envio
+      try { await submit(); } finally { if (window.DynaCursor) window.DynaCursor.idle(); }
     };
 
     box.append(

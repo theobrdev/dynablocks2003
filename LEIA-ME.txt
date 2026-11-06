@@ -1,0 +1,8 @@
+Old Roblox Cursor Set
+Autor: 4W2 (http://www.rw-designer.com/user/74045)
+Fonte: http://www.rw-designer.com/cursor-set/old-roblox
+Licença: domínio público (uso livre para qualquer fim legal).
+
+Os arquivos .cur são usados direto pelo site (style.css e editor.css).
+Os cursores animados (Busy e Working in Background, que eram .ani) viraram quadros PNG (busy-00..11, working-00..11),
+pois os navegadores não tocam .ani. O cursors.js anima trocando os quadros.
