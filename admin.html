@@ -35,6 +35,11 @@
     <div class="agrid" id="pending-grid">Loading...</div>
   </div>
 
+  <div id="pending-models" style="width:680px;max-width:96vw;margin:10px auto 30px;font-size:13px">
+    <h2 class="head">Pending models (Toolbox)</h2>
+    <div id="pm-list">Loading...</div>
+  </div>
+
   <div id="accounts" style="width:960px;max-width:96vw;margin:10px auto 30px;font-size:12px">
     <h2 class="head">Accounts</h2>
     <p>
@@ -195,10 +200,50 @@
   $('acc-search').oninput = renderUsers;
   $('acc-refresh').onclick = loadUsers;
 
+  // ---------- Modelos da Toolbox esperando aprovação ----------
+  async function loadPendingModels() {
+    const box = $('pm-list');
+    const { data, error } = await db.from('toolbox_models')
+      .select('id, name, description, owner_id, part_count, script_count, created_at')
+      .eq('status', 'pending').order('created_at', { ascending: true });
+    if (error) { box.textContent = error.message; return; }
+    if (!data.length) { box.textContent = 'Nothing waiting for approval.'; return; }
+    const ids = [...new Set(data.map(r => r.owner_id))], names = {};
+    const { data: profs } = await db.from('profiles').select('id, username').in('id', ids);
+    (profs || []).forEach(p => { names[p.id] = p.username; });
+
+    const t = el('table', { className: 'mygb-table' });
+    t.append(el('tr', null, ...['Model', 'By', 'Parts', 'Scripts', ''].map(x => el('th', { textContent: x }))));
+    data.forEach(r => {
+      const name = el('td', null, el('b', { textContent: r.name }));
+      if (r.description) name.append(document.createElement('br'), el('small', { textContent: r.description }));
+      const open = el('a', { href: 'editor.html?mode=model&model=' + r.id, target: '_blank', rel: 'noopener', textContent: 'Open in the editor' });
+      const yes = el('button', { type: 'button', textContent: 'Approve' });
+      const no = el('button', { type: 'button', textContent: 'Reject' });
+      yes.onclick = async () => {
+        const { data: ok, error: e } = await db.from('toolbox_models').update({ status: 'approved' }).eq('id', r.id).select();
+        if (e || !ok.length) return alert(e ? e.message : 'Not allowed (are you the admin?).');
+        loadPendingModels();
+      };
+      no.onclick = async () => {
+        if (!confirm('Reject and delete "' + r.name + '"?')) return;
+        const { data: gone, error: e } = await db.from('toolbox_models').delete().eq('id', r.id).select();
+        if (e || !gone.length) return alert(e ? e.message : 'Not allowed (are you the admin?).');
+        loadPendingModels();
+      };
+      const actions = el('td', null, open, document.createElement('br'), yes, document.createTextNode(' '), no);
+      t.append(el('tr', null, name, el('td', { textContent: names[r.owner_id] || '?' }),
+        el('td', { textContent: r.part_count }), el('td', { textContent: r.script_count }), actions));
+    });
+    box.innerHTML = '';
+    box.append(t);
+  }
+
   db.auth.getSession().then(({ data }) => {
     if (!data.session) { location.href = 'signin.html'; return; }
     myId = data.session.user.id;
     loadPending();
+    loadPendingModels();
     loadUsers();
   });
 

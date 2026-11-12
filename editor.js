@@ -15,7 +15,12 @@
   }
 
   // ---------- estado ("a memória do editor") ----------
-  let level = W.defaultLevel();      // { map_name, objects: [...] }
+  // ?mode=model abre o editor como "Build a Model": constrói um modelo para a Toolbox (em vez de um jogo)
+  const MODEL_MODE = new URLSearchParams(location.search).get('mode') === 'model';
+  const emptyModel = () => ({ map_name: 'Untitled Model', sky: W.defaultLevel().sky, objects: [] });
+  let level = MODEL_MODE ? emptyModel() : W.defaultLevel();      // { map_name, objects: [...] }
+  let modelId = null, modelStatus = null, modelOwner = null;     // modelo aberto (só no modo modelo)
+  let isAdmin = false;
   let levelId = null;                // id no Supabase (null = ainda não salvo)
   let me = null;
   let selectedId = null;
@@ -552,6 +557,7 @@
     try { return await saveInner(); } finally { if (window.DynaCursor) window.DynaCursor.idle(); }
   }
   async function saveInner() {
+    if (MODEL_MODE) return saveModel();
     const name = W.cleanName($('map-name').value, '');
     if (name.length < 3) { status('Map name: at least 3 characters (open MENU to change it).', true); return false; }
     level.map_name = name;
@@ -584,11 +590,13 @@
     status('Opened "' + (row.name || level.map_name) + '".');
   }
   async function openById(id) {
+    if (MODEL_MODE) return openModelById(id);
     const { data, error } = await db.from('levels').select('id, name, data, published').eq('id', id).maybeSingle();
     if (error || !data) { status(error ? error.message : 'Map not found (or it is not yours).', true); return; }
     loadInto(data);
   }
   async function showOpen() {
+    if (MODEL_MODE) return showOpenModels();
     $('menu-modal').style.display = 'none';
     const modal = $('open-modal'), list = $('open-list');
     modal.style.display = 'flex';
@@ -621,8 +629,11 @@
   function newMap() {
     if (dirty && !confirm('Discard unsaved changes?')) return;
     $('menu-modal').style.display = 'none';
-    level = W.defaultLevel();
+    level = MODEL_MODE ? emptyModel() : W.defaultLevel();
     levelId = null;
+    modelId = null; modelStatus = null; modelOwner = null;
+    if ($('model-desc')) $('model-desc').value = '';
+    refreshModelButtons();
     $('map-name').value = level.map_name;
     $('published').checked = false;
     $('map-sky').value = level.sky;
@@ -632,7 +643,235 @@
     rebuildScene();
     renderAll();
     dirty = false;
-    status('New map.');
+    status(MODEL_MODE ? 'New model.' : 'New map.');
+  }
+
+  // ---------- Build a Model: salvar / abrir modelos ----------
+  // O modelo é guardado com a base no chão (y = 0) e centrado em x/z, para entrar sempre no lugar certo em qualquer jogo.
+  function normalizedModelObjects() {
+    const objs = JSON.parse(JSON.stringify(level.objects));
+    const parts = objs.filter(o => o.type === 'Part');
+    if (parts.length) {
+      let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity, minY = Infinity;
+      parts.forEach(p => {
+        minX = Math.min(minX, p.position.x - p.size.x / 2); maxX = Math.max(maxX, p.position.x + p.size.x / 2);
+        minZ = Math.min(minZ, p.position.z - p.size.z / 2); maxZ = Math.max(maxZ, p.position.z + p.size.z / 2);
+        minY = Math.min(minY, p.position.y - p.size.y / 2);
+      });
+      const cx = (minX + maxX) / 2, cz = (minZ + maxZ) / 2;
+      parts.forEach(p => {
+        p.position.x = r2(p.position.x - cx); p.position.z = r2(p.position.z - cz); p.position.y = r2(p.position.y - minY);
+      });
+    }
+    return objs;
+  }
+  // para jogar um modelo sozinho: coloca um chão e um ponto de partida longe dele
+  function withTestGround() {
+    const copy = JSON.parse(JSON.stringify(level));
+    const base = { surface: 'Smooth', controller: 'None', hopper: 0, type: 'Part' };
+    copy.objects.push(
+      Object.assign({ id: W.uid('part'), name: 'TestGround', position: { x: 0, y: -0.5, z: 0 }, size: { x: 60, y: 1, z: 60 }, color: 'Green' }, base),
+      Object.assign({ id: W.uid('part'), name: 'SpawnBlock', position: { x: 0, y: 0.5, z: 16 }, size: { x: 6, y: 1, z: 6 }, color: 'Gray' }, base));
+    return copy;
+  }
+  function refreshModelButtons() {
+    const b = $('m-approve');
+    if (b) b.style.display = (MODEL_MODE && isAdmin && modelId && modelStatus === 'pending') ? 'inline-block' : 'none';
+  }
+
+  async function saveModel() {
+    const name = W.cleanName($('map-name').value, '');
+    if (name.length < 3) { status('Model name: at least 3 characters (open MENU to change it).', true); return false; }
+    if (!level.objects.some(o => o.type === 'Part')) { status('Add at least one block to your model first.', true); return false; }
+    if (level.objects.length > 100) { status('A model can have at most 100 objects.', true); return false; }
+    $('map-name').value = name;
+    const description = ($('model-desc').value || '').trim().slice(0, 200);
+    const data = { objects: normalizedModelObjects() };
+    status('Saving model...');
+
+    // o dono só pode editar enquanto está pendente; depois de aprovado, salvar cria uma cópia nova para o admin revisar
+    const canUpdate = modelId && (isAdmin || (modelOwner === me && modelStatus === 'pending'));
+    let res;
+    if (canUpdate) {
+      res = await db.from('toolbox_models').update({ name, description, data }).eq('id', modelId).select('id, status, owner_id').maybeSingle();
+    } else {
+      const row = { name, description, data };
+      if (isAdmin) row.status = 'approved';                   // modelo de admin entra direto na Toolbox
+      res = await db.from('toolbox_models').insert(row).select('id, status, owner_id').single();
+    }
+    if (res.error) { status(res.error.message, true); return false; }
+    if (!res.data) { status('Could not save this model.', true); return false; }
+    const copied = modelId && !canUpdate;
+    modelId = res.data.id; modelStatus = res.data.status; modelOwner = res.data.owner_id;
+    dirty = false;
+    refreshModelButtons();
+    if (modelStatus === 'approved') status('Saved "' + name + '". It is in the Toolbox now!');
+    else status((copied ? 'Your changes were sent as a NEW model. ' : 'Saved! ') + '"' + name + '" is waiting for an admin to approve it for the Toolbox.');
+    return true;
+  }
+  async function openModelById(id) {
+    const { data, error } = await db.from('toolbox_models').select('id, name, description, data, status, owner_id').eq('id', id).maybeSingle();
+    if (error || !data) { status(error ? error.message : 'Model not found (or it is not yours).', true); return; }
+    const clean = W.cleanLevel({ objects: (data.data && data.data.objects) || [] });
+    level = { map_name: data.name, sky: level.sky, objects: clean.objects };
+    modelId = data.id; modelStatus = data.status; modelOwner = data.owner_id;
+    $('map-name').value = data.name;
+    $('model-desc').value = data.description || '';
+    selectedId = null;
+    clearHistory();
+    rebuildScene();
+    renderAll();
+    dirty = false;
+    refreshModelButtons();
+    status('Opened model "' + data.name + '" (' + (data.status === 'approved' ? 'in the Toolbox' : 'waiting for approval') + ').');
+  }
+  async function showOpenModels() {
+    $('menu-modal').style.display = 'none';
+    const modal = $('open-modal'), list = $('open-list');
+    modal.style.display = 'flex';
+    list.textContent = 'Loading...';
+    const { data, error } = await db.from('toolbox_models').select('id, name, status, updated_at')
+      .eq('owner_id', me).order('updated_at', { ascending: false });
+    if (error) { list.textContent = error.message; return; }
+    if (!data.length) { list.textContent = 'You have no saved models yet.'; return; }
+    const t = h('table');
+    t.innerHTML = '<tr><th>Model</th><th>Status</th><th>Updated</th><th></th></tr>';
+    data.forEach(r => {
+      const open = h('button', { textContent: 'Open', type: 'button' });
+      open.onclick = async () => { modal.style.display = 'none'; await openModelById(r.id); };
+      const del = h('button', { textContent: 'Delete', type: 'button' });
+      del.onclick = async () => {
+        if (!confirm('Delete "' + r.name + '" forever?')) return;
+        const { data: gone, error: e } = await db.from('toolbox_models').delete().eq('id', r.id).select();
+        if (e || !gone.length) return alert(e ? e.message : 'Could not delete.');
+        if (r.id === modelId) { modelId = null; modelStatus = null; modelOwner = null; refreshModelButtons(); }
+        showOpenModels();
+      };
+      t.appendChild(h('tr', null,
+        h('td', { textContent: r.name }), h('td', { textContent: r.status === 'approved' ? 'In the Toolbox' : 'Waiting for approval' }),
+        h('td', { textContent: new Date(r.updated_at).toLocaleDateString() }),
+        h('td', null, open, document.createTextNode(' '), del)));
+    });
+    list.innerHTML = '';
+    list.appendChild(t);
+  }
+  function setupModelUI() {                                  // o editor vira o "Build a Model"
+    document.title = 'Build a Model - DynaBlocks';
+    const nameRow = $('map-name').parentNode;
+    nameRow.firstChild.textContent = 'Model name: ';
+    $('published').parentNode.style.display = 'none';
+    $('map-sky').parentNode.style.display = 'none';
+    $('map-name').value = level.map_name;
+    const desc = h('input', { type: 'text', id: 'model-desc', maxLength: 200 });
+    desc.style.width = '320px';
+    nameRow.parentNode.insertBefore(h('div', { className: 'mrow' }, document.createTextNode('Description: '), desc), nameRow.nextSibling);
+    $('m-save').textContent = 'Save model';
+    $('m-approve').onclick = async () => {
+      const { data, error } = await db.from('toolbox_models').update({ status: 'approved' }).eq('id', modelId).select();
+      if (error || !data.length) return status(error ? error.message : 'Not allowed.', true);
+      modelStatus = 'approved';
+      refreshModelButtons();
+      $('menu-modal').style.display = 'none';
+      status('Approved! "' + level.map_name + '" is in the Toolbox now.');
+    };
+  }
+
+  // ---------- Toolbox: modelos prontos para colocar no jogo ----------
+  let tbTab = 'approved';
+  function showToolbox(tab) {
+    $('menu-modal').style.display = 'none';
+    if (tab) tbTab = tab;
+    $('toolbox-modal').style.display = 'flex';
+    renderToolbox();
+  }
+  async function renderToolbox() {
+    const tabs = $('tb-tabs'), list = $('tb-list');
+    tabs.innerHTML = '';
+    const defs = [['approved', 'Toolbox'], ['mine', 'My models']];
+    if (isAdmin) defs.push(['pending', 'Pending (admin)']);
+    defs.forEach(([k, label]) => {
+      const b = h('button', { type: 'button', textContent: label });
+      if (k === tbTab) b.style.fontWeight = 'bold';
+      b.onclick = () => { tbTab = k; renderToolbox(); };
+      tabs.append(b, document.createTextNode(' '));
+    });
+    list.textContent = 'Loading...';
+    let q = db.from('toolbox_models').select('id, name, description, owner_id, status, part_count, script_count, created_at')
+      .order('created_at', { ascending: false }).limit(100);
+    if (tbTab === 'approved') q = q.eq('status', 'approved');
+    else if (tbTab === 'mine') q = q.eq('owner_id', me);
+    else q = q.eq('status', 'pending');
+    const { data, error } = await q;
+    if (error) { list.textContent = error.message; return; }
+    if (!data.length) {
+      list.textContent = tbTab === 'approved' ? 'The Toolbox is empty. Build a model from the home page and send it!'
+        : tbTab === 'mine' ? 'You have not saved any models yet.' : 'Nothing waiting for approval.';
+      return;
+    }
+    const ids = [...new Set(data.map(r => r.owner_id))], names = {};
+    const { data: profs } = await db.from('profiles').select('id, username').in('id', ids);
+    (profs || []).forEach(p => { names[p.id] = p.username; });
+
+    const t = h('table');
+    t.innerHTML = '<tr><th>Model</th><th>By</th><th>Parts</th><th>Scripts</th><th></th></tr>';
+    data.forEach(r => {
+      const first = h('td', null, h('b', { textContent: r.name }));
+      if (r.status !== 'approved') first.append(h('small', { textContent: '  (waiting for approval)' }));
+      if (r.description) { first.append(h('br'), h('small', { textContent: r.description })); }
+      const act = h('td');
+      const ins = h('button', { type: 'button', textContent: 'Insert' });
+      ins.onclick = () => insertModel(r);
+      const open = h('a', { href: 'editor.html?mode=model&model=' + r.id, target: '_blank', rel: 'noopener', textContent: 'open' });
+      act.append(ins, document.createTextNode(' '), open, document.createTextNode(' '));
+      if (isAdmin && r.status === 'pending') {
+        const ok = h('button', { type: 'button', textContent: 'Approve' });
+        ok.onclick = async () => {
+          const { data: d, error: er } = await db.from('toolbox_models').update({ status: 'approved' }).eq('id', r.id).select();
+          if (er || !d.length) return alert(er ? er.message : 'Not allowed.');
+          renderToolbox();
+        };
+        act.append(ok, document.createTextNode(' '));
+      }
+      if (isAdmin || r.owner_id === me) {
+        const del = h('button', { type: 'button', textContent: 'Delete' });
+        del.onclick = async () => {
+          if (!confirm('Delete "' + r.name + '"?')) return;
+          const { data: gone, error: er } = await db.from('toolbox_models').delete().eq('id', r.id).select();
+          if (er || !gone.length) return alert(er ? er.message : 'Could not delete.');
+          renderToolbox();
+        };
+        act.append(del);
+      }
+      t.appendChild(h('tr', null, first, h('td', { textContent: names[r.owner_id] || '?' }),
+        h('td', { textContent: r.part_count }), h('td', { textContent: r.script_count }), act));
+    });
+    list.innerHTML = '';
+    list.appendChild(t);
+  }
+  async function insertModel(r) {
+    const { data, error } = await db.from('toolbox_models').select('data').eq('id', r.id).maybeSingle();
+    if (error || !data) return alert(error ? error.message : 'Model not found.');
+    const objs = W.cleanLevel({ objects: (data.data && data.data.objects) || [] }).objects;   // limpa tudo antes de usar
+    if (!objs.length) return alert('This model is empty.');
+    if (level.objects.length + objs.length > W.LIMITS.objects) return alert('No room: a map can have ' + W.LIMITS.objects + ' objects.');
+    pushUndo();
+    const ox = snap(orbit.target.x), oz = snap(orbit.target.z);   // o modelo aparece onde a câmera está olhando, no chão
+    let firstPart = null;
+    objs.forEach(o => {
+      const c = JSON.parse(JSON.stringify(o));
+      c.id = W.uid(o.type.toLowerCase());
+      if (c.type === 'Part') {
+        c.position.x = W.num(c.position.x + ox, 0, -2000, 2000);
+        c.position.z = W.num(c.position.z + oz, 0, -2000, 2000);
+        addMesh(c);
+        if (!firstPart) firstPart = c;
+      }
+      level.objects.push(c);
+    });
+    markDirty();
+    $('toolbox-modal').style.display = 'none';
+    select(firstPart ? firstPart.id : null);
+    status('Inserted "' + r.name + '" (' + objs.length + ' objects). Drag it where you want. Scripts keep their part names.');
   }
 
   // ---------- jogar / parar ----------
@@ -647,7 +886,7 @@
     const outfit = window.Avatar ? await window.Avatar.loadOutfit(db).catch(() => null) : null;
     if (!playing) return;                       // o usuário apertou STOP enquanto carregava
     try {
-      game = window.Game.start({ level: W.cleanLevel(JSON.parse(JSON.stringify(level))), container, outfit });
+      game = window.Game.start({ level: W.cleanLevel(MODEL_MODE ? withTestGround() : JSON.parse(JSON.stringify(level))), container, outfit });
     } catch (e) {
       stop();
       status('Could not start the game: ' + (e && e.message ? e.message : e), true);
@@ -679,6 +918,8 @@
     t.onclick = () => { activeTab = activeTab === t.dataset.tab ? null : t.dataset.tab; renderProps(); };
   });
 
+  $('m-toolbox').onclick = () => showToolbox('approved');
+  $('tb-close').onclick = () => { $('toolbox-modal').style.display = 'none'; };
   $('m-new').onclick = newMap;
   $('m-open').onclick = showOpen;
   $('m-save').onclick = async () => { await save(); };
@@ -729,14 +970,25 @@
     const { data } = await db.auth.getSession();
     if (!data.session) { location.href = 'signin.html'; return; }
     me = data.session.user.id;
+    const { data: pr } = await db.from('profiles').select('is_admin').eq('id', me).maybeSingle();
+    isAdmin = !!(pr && pr.is_admin);
+    if (MODEL_MODE) setupModelUI();
     initCategories();
     rebuildScene();
     renderAll();
     updateUndoButtons();
     setTool('select');
     setSky(false);
-    const id = parseInt(new URLSearchParams(location.search).get('level'), 10);
-    if (id) await openById(id);
+    const qs = new URLSearchParams(location.search);
+    if (MODEL_MODE) {
+      status('Build a Model: build something, then open MENU > Save model to send it to the Toolbox.');
+      const mid = parseInt(qs.get('model'), 10);
+      if (mid) await openModelById(mid);
+      if (qs.get('toolbox')) showToolbox('approved');
+    } else {
+      const id = parseInt(qs.get('level'), 10);
+      if (id) await openById(id);
+    }
   }
   init();
 })();

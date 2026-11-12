@@ -44,8 +44,8 @@
     </table>
 
     <h2 class="head" id="created-models">My created models</h2>
-    <table class="mygb-table">
-      <tr><th>Model</th><th>Created</th><th></th></tr>
+    <table class="mygb-table" id="my-models">
+      <tr><th>Model</th><th>Created</th><th>Status</th></tr>
       <tr><td colspan="3" class="empty">You have not created any models. <a href="index.html">Build a model!</a></td></tr>
     </table>
 
@@ -131,6 +131,22 @@
         c3.append(document.createTextNode((g.published ? 'Published' : 'Private') + ' - '));
         const e = document.createElement('a');
         e.href = 'editor.html?level=' + g.id; e.textContent = 'edit'; c3.append(e);
+        tr.append(c1, c2, c3);
+        t.append(tr);
+      });
+    }
+    const { data: models } = await db.from('toolbox_models').select('id, name, status, created_at')
+      .eq('owner_id', user.id).order('created_at', { ascending: false });
+    if (models && models.length) {
+      const t = $('my-models');
+      t.querySelectorAll('tr:nth-child(n+2)').forEach(r => r.remove());
+      models.forEach(md => {
+        const tr = document.createElement('tr');
+        const c1 = document.createElement('td');
+        const a = document.createElement('a');
+        a.href = 'editor.html?mode=model&model=' + md.id; a.textContent = md.name; c1.append(a);
+        const c2 = document.createElement('td'); c2.textContent = new Date(md.created_at).toLocaleDateString();
+        const c3 = document.createElement('td'); c3.textContent = md.status === 'approved' ? 'In the Toolbox' : 'Waiting for approval';
         tr.append(c1, c2, c3);
         t.append(tr);
       });
